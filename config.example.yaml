@@ -1,0 +1,52 @@
+proxy:
+  host: "http://192.168.0.1:8888"  # Host for traffic proxy
+
+api:
+  auth:
+    enabled: true
+    username: 'admin'
+    password: 'admin'
+
+
+jailManager:
+  storage: file
+  # syncInterval: 5000
+  # syncAlways: true
+  driverConfig:
+    filePath: /foo/bar.json
+    locker:
+      enabled: true
+      config:
+        retries: 3
+
+
+rules:
+  - type: "static"
+    linkUrl: "https://httpbin.org/status/200"
+    updateInterval: 120000
+
+  - type: "composite"
+    keys: ["ip", "user-agent", "url"] # geo-country, geo-city
+    for:
+      key: 'url'
+      correlationMethod: 'eq' # or regexp
+      value: '/test'
+    period: 60                         # Period in seconds for which the number of requests is considered
+    limit: 5                           # If during the period the number of requests exceeds the limit, ban
+    duration: 180                      # Blocking by 180 seconds when the limit exceeds
+    #escalationRate: 2
+
+
+  - type: "flexible"
+    field: "url" # or user-agent, header-<header-name>
+    scan:
+      - method: 'regexp'
+        values: ["/wp-(admin|include|content)/i"]
+
+      - method: 'equals'
+        values: ["/admin.php"]
+
+    period: 60                         # Period in seconds for which the number of requests is considered
+    limit: 5                           # If during the period the number of requests exceeds the limit, ban
+    duration: 180                      # Blocking by 180 seconds when the limit exceeds
+    #escalationRate: 2

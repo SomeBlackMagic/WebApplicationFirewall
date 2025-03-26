@@ -1,0 +1,52 @@
+{
+  "compilerOptions": {
+
+    "listFiles": true,
+    "removeComments": true,
+    "resolveJsonModule": true,
+    "alwaysStrict": false,
+    "declaration": false,
+    "declarationMap": false,
+    "downlevelIteration": true,
+    "importHelpers": true,
+    "inlineSources": true,
+    "lib": ["es5", "es6", "es7", "dom"],
+    "moduleResolution": "node",
+    "noEmitHelpers": false,
+    "noFallthroughCasesInSwitch": false,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "noImplicitUseStrict": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "plugins": [
+      {
+        "name": "typescript-tslint-plugin",
+        "configFile": "./tslint.json",
+        "alwaysShowRuleFailuresAsWarnings": false,
+        "ignoreDefinitionFiles": true,
+        "mockTypeScriptVersion": false,
+        "suppressWhileTypeErrorsPresent": false
+      }
+    ],
+    "preserveWatchOutput": true,
+    "pretty": true,
+    "sourceMap": true,
+    "strict": false,
+    "strictBindCallApply": false,
+    "target": "ES6",
+    "module": "CommonJS",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"],
+    "esm": false
+  },
+  "execMap": {
+    "ts": "node --loader ts-node/esm"
+  }
+}

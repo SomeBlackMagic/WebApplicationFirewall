@@ -1,0 +1,28 @@
+{
+  "extends": "./tsconfig.base.json",
+  "exclude": [
+    "node_modules/**"
+  ],
+  "include": ["src"],
+  "compilerOptions": {
+    "types": [
+      "node",
+      "jest"
+    ],
+    "typeRoots": [
+      "node_modules/@types",
+      "@types",
+      "node",
+      "types"
+    ],
+    "rootDirs": ["test", "src"],
+    "baseUrl": "./",
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "paths": {
+      "@waf": ["src/*"],
+      "src/*": ["src/*"],
+      "test/*": ["test/*"]
+    }
+  }
+}
