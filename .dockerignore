@@ -1,0 +1,14 @@
+.editorconfig
+.git
+.gitlab
+.gitlab-ci-functions
+.gitlab-ci.yml
+.helm
+.make
+Makefile
+.gitignore
+.gitmodules
+.dockerignore
+CODEOWNERS
+README.md
+.idea
