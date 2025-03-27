@@ -15,14 +15,13 @@
       "node",
       "types"
     ],
-    "rootDirs": ["test", "src"],
+    "rootDirs": ["src", "test"],
     "baseUrl": "./",
     "rootDir": "./src",
     "outDir": "./dist",
     "paths": {
-      "@waf": ["src/*"],
-      "src/*": ["src/*"],
-      "test/*": ["test/*"]
+      "@waf/*": ["src/*"],
+      "@test/*": ["test/*"]
     }
   }
 }

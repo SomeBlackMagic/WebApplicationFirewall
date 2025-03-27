@@ -2,7 +2,7 @@ import fs from 'fs';
 import yaml from 'js-yaml';
 import process from "process";
 import {env} from "./Utils";
-import {Log} from "./Log";
+import {Log} from "@waf/Log";
 
 export class ConfigLoader {
     public async load<T>(): Promise<T> {
@@ -19,12 +19,14 @@ export class ConfigLoader {
 
     async loadFromFile<T>(): Promise<T> {
         const configFilePath = env('WAF_CONFIG_FILE', process.cwd() + '/config.yaml');
+        Log.instance.info('Load configuration from file: ' + configFilePath);
         return this.loadYamlConfig<T>(fs.readFileSync(configFilePath, 'utf8'), configFilePath);
     }
 
 
     private async loadFromLink<T>(): Promise<T> {
         const link = env('WAF_CONFIG_FILE');
+        Log.instance.info('Load configuration from link: ' + link);
         const response = await fetch(link)
             .then((result) => {
                 if (result.status !== 200) {

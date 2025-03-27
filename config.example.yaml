@@ -7,6 +7,9 @@ api:
     username: 'admin'
     password: 'admin'
 
+wafMiddleware:
+  detectClientIp:
+    headers: ['fastly-client-ip', 'cf-connecting-ip', 'x-original-forwarded-for', ]
 
 jailManager:
   storage: file

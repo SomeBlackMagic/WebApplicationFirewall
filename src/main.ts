@@ -6,10 +6,11 @@ import {GeoIP2} from "./GeoIP2";
 import {Log} from "./Log";
 import {envBoolean} from "./Utils";
 import {IJailManagerConfig, JailManager} from "./Jail/JailManager";
-import {WAFMiddleware} from "./WAFMiddleware";
+import {IWAFMiddlewareConfig, WAFMiddleware} from "./WAFMiddleware";
 import {Api, IApiConfig} from "./Api";
 import {IAbstractRuleConfig} from "src/Rules/AbstractRule";
 import {ConfigLoader} from "./ConfigLoader";
+import {IWhitelistConfig, Whitelist} from "@waf/Whitelist";
 
 
 // /*catches ctrl+c event*/
@@ -32,8 +33,10 @@ interface AppConfig {
     proxy: {
         host: string;
     }
-    rules: IAbstractRuleConfig[]
+    wafMiddleware: IWAFMiddlewareConfig,
     jailManager: IJailManagerConfig
+    whitelist: IWhitelistConfig,
+    rules: IAbstractRuleConfig[]
     api: IApiConfig
 
 }
@@ -43,8 +46,9 @@ interface AppConfig {
 
     await GeoIP2.instance.init()
     JailManager.build(appConfig.jailManager);
+    Whitelist.build(appConfig.whitelist);
 
-    const waf = new WAFMiddleware();
+    const waf = new WAFMiddleware(appConfig.wafMiddleware);
     waf.loadRules(appConfig.rules)
 
 
@@ -61,7 +65,7 @@ interface AppConfig {
 
 
     // We use WAF Middleware to all routes
-    app.use(waf.wafMiddleware());
+    app.use(waf.use());
 
     if (envBoolean('WAF_AUDIT', false) == true) {
         app.use(audit({
