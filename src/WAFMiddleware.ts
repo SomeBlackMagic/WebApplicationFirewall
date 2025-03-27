@@ -1,38 +1,64 @@
 import {RequestHandler} from "express";
 import {NextFunction, Request, Response} from "express-serve-static-core";
-import {JailManager} from "./Jail/JailManager";
-import {Log} from "./Log";
-import {AbstractRule, IAbstractRuleConfig} from "./Rules/AbstractRule";
-import {CompositeRule, ICompositeRuleConfig} from "./Rules/CompositeRule";
-import {IStaticRuleConfig, StaticRule} from "./Rules/StaticRule";
-import {FlexibleRule, IFlexibleRuleConfig} from "./Rules/FlexibleRule";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
+import {GeoIP2} from "@waf/GeoIP2";
+import {Whitelist} from "@waf/Whitelist";
+import {FlexibleRule, IFlexibleRuleConfig} from "@waf/Rules/FlexibleRule";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {JailManager} from "@waf/Jail/JailManager";
+import {Log} from "@waf/Log";
+import {CompositeRule, ICompositeRuleConfig} from "@waf/Rules/CompositeRule";
+import {IStaticRuleConfig, StaticRule} from "@waf/Rules/StaticRule";
 
 export class WAFMiddleware {
 
     private rules: AbstractRule[] = [];
 
     public constructor(
+        private readonly config: IWAFMiddlewareConfig,
         private readonly jailManager?: JailManager,
+        private readonly whitelist?: Whitelist,
         private readonly log?: LoggerInterface,
+        private readonly geoIP2?: GeoIP2,
     ) {
-        if(!jailManager) {
+        if (!this.config.detectClientIp.headers) {
+            this.config.detectClientIp.headers = [];
+        }
+        if (!jailManager) {
             this.jailManager = JailManager.instance;
         }
-        if(!log) {
+
+        if (!whitelist) {
+            this.whitelist = Whitelist.instance;
+        }
+
+
+        if (!log) {
             this.log = Log.instance.withCategory('app.WAFMiddleware')
+        }
+
+        if (!geoIP2) {
+            this.geoIP2 = GeoIP2.instance;
         }
     }
 
 
-    public wafMiddleware(): RequestHandler {
+    public use(): RequestHandler {
         return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-            const clientIp = this.getClientIp(req);
+            const clientIp = this.detectClientIp(req);
+            const clientGeoCountry = this.detectClientCountry(req, clientIp);
+            const clientGeoCity = this.detectClientCity(req, clientIp);
+
+            if(this.whitelist.check(clientIp, clientGeoCountry, clientGeoCity)) {
+                next();
+                return;
+            }
+
 
             const blockedUser = this.jailManager.getBlockedIp(clientIp);
 
-            if(blockedUser!== false) {
-                if(blockedUser.unbanTime > Date.now()) {
+            if (blockedUser !== false) {
+                if (blockedUser.unbanTime > Date.now()) {
                     this.log.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.geoCountry, blockedUser.geoCountry]);
                     res.sendStatus(429);
                     return;
@@ -44,7 +70,7 @@ export class WAFMiddleware {
             })
 
             const result: boolean[] = await Promise.all(promiseList);
-            if(result.some(x => x)) {
+            if (result.some(x => x)) {
                 res.sendStatus(429);
                 return;
             }
@@ -55,7 +81,7 @@ export class WAFMiddleware {
 
 
     public loadRules(rulesConfig: IAbstractRuleConfig[]) {
-
+        this.rules = [];
         for (const rule of rulesConfig) {
             switch (rule.type) {
                 case CompositeRule.ID:
@@ -79,22 +105,19 @@ export class WAFMiddleware {
 // ----------------------------
 // Function for obtaining a real IP client
 // ----------------------------
-    public getClientIp(req) {
-        if (typeof req.headers['fastly-client-ip']!== "undefined") {
-            return req.headers['fastly-client-ip'];
-        }
-
-        if (typeof req.headers['cf-connecting-ip']!== "undefined") {
-            return req.headers['cf-connecting-ip'];
-        }
-
-        if (typeof req.headers['x-original-forwarded-for']!== "undefined") {
-            return req.headers['x-original-forwarded-for'];
+    public detectClientIp(req: Request) {
+        if (this.config.detectClientIp.headers.length > 0) {
+            for (const header of this.config.detectClientIp.headers) {
+                if (typeof req.headers[header] !== "undefined") {
+                    return req.headers[header];
+                }
+            }
         }
 
         // If there is a X-Forwarded-FR, we return the first IP from the list
         const forwarded = req.headers['x-forwarded-for'];
         if (forwarded) {
+            // @ts-ignore
             const ips = forwarded.split(',').map(ip => ip.trim());
             if (ips.length) {
                 return ips[0];
@@ -102,4 +125,30 @@ export class WAFMiddleware {
         }
         return req.ip;
     }
+
+    public detectClientCountry(req: Request, ip: string): string {
+        return this.geoIP2.getCountry(ip)?.country?.names?.en || 'not-detected';
+    }
+
+    public detectClientCity(req: Request, ip: string): string {
+        return this.geoIP2.getCity(ip)?.city?.names?.en || 'not-detected';
+    }
+
+}
+
+export interface IWAFMiddlewareConfig {
+
+    detectClientIp: {
+        headers: string[];
+    }
+
+    detectClientCountry?: {
+        method: 'header' | 'geoip'
+        failover: ""
+    }
+    detectClientCity?: {
+        method: 'header' | 'geoip'
+    }
+
+
 }

@@ -1,4 +1,4 @@
-Web Application Firewall
+# Web Application Firewall
 
 
 ![Build App](https://github.com/SomeBlackMagic/WebApplicationFirewall/actions/workflows/build.yaml/badge.svg)
@@ -8,14 +8,6 @@ Web Application Firewall
 ![GitHub Release](https://img.shields.io/github/v/release/SomeBlackMagic/WebApplicationFirewall)
 [![Contributors](https://img.shields.io/github/contributors/SomeBlackMagic/WebApplicationFirewall.svg)](https://github.com/SomeBlackMagic/WebApplicationFirewall/graphs/contributors)
 [![Commit](https://img.shields.io/github/last-commit/SomeBlackMagic/WebApplicationFirewall.svg)](https://github.com/SomeBlackMagic/WebApplicationFirewall/commits/master)
-
-
-
-Run local:
-Before run you need to download GeoIP2 database and store files in work dir:
-https://github.com/P3TERX/GeoLite.mmdb
-Run in project home directory
-
 
 ## Configuration
 
@@ -29,3 +21,21 @@ Env variable for configure the application:
 | --------------- |---------------------------------------------| ------------- |
 | WAF_CONFIG_TYPE | How to load configuration. 'file' or 'link' | file          |
 | WAF_CONFIG_FILE | Link on file system or http href            |               |
+
+
+
+## Development
+### Prerequisites
+- NodeJS v22
+- GeoIP Database
+
+### Build and run locally
+- Copy config.example.yaml to config.yaml in project root
+- Download and store GeoIP2-Country.mmdb and GeoIP2-City.mmdb in project root
+  - You can use this files for testing (https://github.com/P3TERX/GeoLite.mmdb)
+
+
+```shell
+npm install
+node ./node_modules/.bin/ts-node src/main.ts
+```

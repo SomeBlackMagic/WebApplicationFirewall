@@ -28,7 +28,9 @@
         "ignoreDefinitionFiles": true,
         "mockTypeScriptVersion": false,
         "suppressWhileTypeErrorsPresent": false
-      }
+      },
+      { "transform": "typescript-transform-paths" },
+      { "transform": "typescript-transform-paths", "afterDeclarations": true }
     ],
     "preserveWatchOutput": true,
     "pretty": true,

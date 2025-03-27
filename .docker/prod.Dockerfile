@@ -1,5 +1,4 @@
 # syntax=docker/dockerfile:experimental
-
 FROM node:22-alpine as builder
 
 WORKDIR /app

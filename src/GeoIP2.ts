@@ -2,6 +2,7 @@ import {City, Country, Reader} from "@maxmind/geoip2-node";
 import process from "process";
 import ReaderModel from "@maxmind/geoip2-node/dist/src/readerModel";
 import {Log} from "./Log";
+import fs from "fs";
 
 export class GeoIP2 {
     static #instance: GeoIP2;
@@ -19,9 +20,18 @@ export class GeoIP2 {
 
 
     public async init(): Promise<void> {
+        const dbLinkCountry = process.cwd() + '/GeoIP2-Country.mmdb';
+        const dbLinkCity = process.cwd() + '/GeoIP2-City.mmdb';
+        if(!fs.existsSync(dbLinkCountry)) {
+            throw new Error('GeoIP2-Country.mmdb does not exist');
+        }
+        if(!fs.existsSync(dbLinkCity)) {
+            throw new Error('GeoIP2-City.mmdb does not exist');
+        }
+
         [this.readerCountry, this.readerCity] = await Promise.all([
-            Reader.open(process.cwd() + '/GeoIP2-Country.mmdb'),
-            Reader.open(process.cwd() + '/GeoIP2-City.mmdb')
+            Reader.open(dbLinkCountry),
+            Reader.open(dbLinkCity)
         ])
     }
 
