@@ -38,7 +38,7 @@ export class StaticRule extends AbstractRule {
         }
     }
 
-    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean> {
+    public async use(clientIp: string): Promise<boolean> {
         if(this.blockedIPS.includes(clientIp)) {
             this.log.debug('Reject request',  clientIp);
             return true;

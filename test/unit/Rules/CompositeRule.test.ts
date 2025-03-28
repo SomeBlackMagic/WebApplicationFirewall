@@ -29,9 +29,9 @@ describe('CompositeRule test', () => {
         const response = httpMocks.createResponse();
         const next = jest.fn();
 
-        let result = await rule.use('1.1.1.1', request, response, next);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', request, response, next);
+        result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "composite"});
 
 
@@ -60,9 +60,9 @@ describe('CompositeRule test', () => {
         const response = httpMocks.createResponse();
         const next = jest.fn();
 
-        let result = await rule.use('1.1.1.1', request, response, next);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', request, response, next);
+        result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
 
 
@@ -92,9 +92,9 @@ describe('CompositeRule test', () => {
         const response = httpMocks.createResponse();
         const next = jest.fn();
 
-        let result = await rule.use('1.1.1.1', request, response, next);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', request, response, next);
+        result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "composite"});
 
 
@@ -125,9 +125,9 @@ describe('CompositeRule test', () => {
         const response = httpMocks.createResponse();
         const next = jest.fn();
 
-        let result = await rule.use('1.1.1.1', request, response, next);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', request, response, next);
+        result = await rule.use('1.1.1.1', 'none', 'none', request);
         expect(result).toEqual(false);
 
     });
