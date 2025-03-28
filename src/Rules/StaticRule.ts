@@ -1,8 +1,7 @@
-import {AbstractRule, IAbstractRuleConfig} from "./AbstractRule";
-import {NextFunction, Request, Response} from "express-serve-static-core";
-import {Log} from "../Log";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {clearInterval} from "node:timers";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {Log} from "@waf/Log";
 
 
 export class StaticRule extends AbstractRule {

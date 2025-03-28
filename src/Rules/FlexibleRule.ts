@@ -1,13 +1,13 @@
 import {Request} from "express-serve-static-core";
-import { LoggerInterface } from '@elementary-lab/standards/src/LoggerInterface';
+import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {IBannedIPItem} from "@waf/WAFMiddleware";
-import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
+import {ConditionsRule} from "@waf/Rules/ConditionsRule";
 
-export class FlexibleRule extends AbstractRule {
+export class FlexibleRule extends ConditionsRule {
 
     public static ID: string = 'flexible';
-
 
     private suspicions: Record<string, number[]> | [] = [];
 
@@ -16,42 +16,19 @@ export class FlexibleRule extends AbstractRule {
         private readonly log?: LoggerInterface
     ) {
         super();
-        if(!this.log) {
+        if (!this.log) {
             this.log = Log.instance.withCategory('rules.flexibleRule')
         }
     }
 
-    public async use(clientIp: string, country: string, city: string, req: Request): Promise<boolean|IBannedIPItem> {
-        let testedValue: string;
-        switch (true) {
-            case this.rule.field === 'url':
-                testedValue = req.url
-                break;
-            case this.rule.field === 'user-agent':
-                testedValue = req.header('user-agent');
-                break;
-            case this.rule.field.indexOf('header-') !== -1:
-                testedValue = req.header(this.rule.field.replace('header-', ''),);
-                break
+    public async use(clientIp: string, country: string, city: string, req: Request): Promise<boolean | IBannedIPItem> {
 
-        }
+        const ruleTester: boolean = this.checkConditions(this.rule.conditions, req, country, city);
 
-        const ruleTester = this.rule.scan.some((item) => {
-            switch (item.method) {
-                case 'equals':
-                    return item.values.includes(testedValue)
-                case 'regexp':
-                    return item.values.some(rule => {
-                        const ruleRegexp = new RegExp(this.createRegexFromString(rule))
-                        return ruleRegexp.test(testedValue);
-                    });
-            }
-        })
-
-
-        if(!ruleTester) {
+        if (!ruleTester) {
             return false;
         }
+
         // Initialize an object for this key
         if (!this.suspicions[clientIp]) {
             this.suspicions[clientIp] = [];
@@ -64,7 +41,7 @@ export class FlexibleRule extends AbstractRule {
 
         // Add the current request
         this.suspicions[clientIp].push(now);
-        this.log.debug('Composite counter by key:' + clientIp,   this.suspicions[clientIp].length);
+        this.log.debug('Composite counter by key:' + clientIp, this.suspicions[clientIp].length);
 
         // If the number of queries exceeds the limit, we block IP
         if (this.suspicions[clientIp].length >= (this.rule.limit || 100)) {
@@ -76,18 +53,18 @@ export class FlexibleRule extends AbstractRule {
                 escalationRate: this.rule?.escalationRate || 1.0,
             }
         }
+
         return false;
 
     }
 
 
-
 }
 
 export interface IFlexibleRuleConfig extends IAbstractRuleConfig {
-    field: string
-    scan: {
-        method: "regexp"|"equals"
+    conditions: {
+        field: string
+        method: "regexp" | "equals"
         values: string[]
     }[]
 

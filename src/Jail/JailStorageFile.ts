@@ -1,10 +1,10 @@
-import {JailStorageInterface} from "./JailStorageInterface";
 import fs, {promises as fsPromises} from "fs";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {BanInfo} from "./JailManager";
-import {Log} from "../Log";
 import lockfile, {LockOptions} from "proper-lockfile";
 import path from "node:path";
+import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
+import {BanInfo} from "@waf/Jail/JailManager";
+import {Log} from "@waf/Log";
 
 export class JailStorageFile implements JailStorageInterface {
 

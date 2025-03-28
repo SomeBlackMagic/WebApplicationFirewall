@@ -3,9 +3,10 @@ import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
+import {ConditionsRule, IConditionsRule} from "@waf/Rules/ConditionsRule";
 
 
-export class CompositeRule extends AbstractRule {
+export class CompositeRule extends ConditionsRule {
 
     // public static GARBAGE_TIME_PERIOD: number = 60 * 1000;
     public static ID: string = 'composite';
@@ -23,39 +24,27 @@ export class CompositeRule extends AbstractRule {
     private compositeCounters = {};
 
     public async use(clientIp: string, country:string, city:string, req: Request): Promise<boolean|IBannedIPItem> {
-        let filterValue = ''
-        switch (this.rule.for.key) {
-            case 'url':
-                filterValue = req.url
-                break;
+
+        const ruleTester: boolean = this.checkConditions(this.rule.conditions, req, country, city);
+
+        if(!ruleTester) {
+            return Promise.resolve(false);
         }
 
-        if (this.rule.for.correlationMethod == 'eq') {
-            if (filterValue !== this.rule.for.value) {
-                this.log.trace('Request ' + req.header('x-request-id') + ' skipped ', [filterValue, this.rule.for.value])
-                return false
-            }
-        } else if (this.rule.for.correlationMethod === 'regexp') {
-            if (filterValue.match(this.createRegexFromString(this.rule.for.value)) == null) {
-                this.log.trace('Request ' + req.header('x-request-id') + ' skipped ', [filterValue, this.rule.for.value])
-                return false;
-            }
-        }
-        // We form an integral key
-        const keyParts = this.rule.keys.map(k => {
-            switch (k) {
+        const keyParts = this.rule.keys.map(key => {
+            switch (key) {
                 case 'ip':
                     return clientIp;
                 case 'user-agent':
-                    return req.headers['user-agent'] || 'user-agent-not-detected';
+                    return req.header('user-agent') || 'user-agent-not-detected';
+                case 'hostname':
+                    return req.hostname;
                 case 'url':
                     return req.url;
-                case 'geo-country': {
+                case 'geo-country':
                     return country;
-                }
-                case 'geo-city': {
+                case 'geo-city':
                     return city;
-                }
                 default:
                     return '-';
             }
@@ -78,16 +67,16 @@ export class CompositeRule extends AbstractRule {
 
         // If the number of queries exceeds the limit, we block IP
         if (this.compositeCounters[compositeKey].length >= (this.rule.limit || 100)) {
-            this.log.info(`The composite rule worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`, [], 'rules.CompositeRule');
-            return {
+            this.log.info(`The composite rule worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`);
+            return Promise.resolve({
                 ruleId: CompositeRule.ID,
                 ip: clientIp,
                 duration: this.rule.duration,
                 escalationRate: this.rule?.escalationRate || 1.0,
-            }
+            })
         }
 
-        return false;
+        return Promise.resolve(false);
 
     }
 
@@ -113,12 +102,8 @@ export class CompositeRule extends AbstractRule {
 }
 
 export interface ICompositeRuleConfig extends IAbstractRuleConfig {
-    for: {
-        key: string;
-        correlationMethod: string;
-        value: string;
-    }
     keys: string[]
+    conditions: IConditionsRule[]
     limit: number
     period: number
     duration: number

@@ -1,8 +1,8 @@
 import {City, Country, Reader} from "@maxmind/geoip2-node";
 import process from "process";
 import ReaderModel from "@maxmind/geoip2-node/dist/src/readerModel";
-import {Log} from "./Log";
 import fs from "fs";
+import {Log} from "@waf/Log";
 
 export class GeoIP2 {
     static #instance: GeoIP2;

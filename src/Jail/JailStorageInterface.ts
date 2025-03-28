@@ -1,4 +1,4 @@
-import {BanInfo} from "./JailManager";
+import {BanInfo} from "@waf/Jail/JailManager";
 
 export interface JailStorageInterface {
     load(...args: any[]): Promise<BanInfo[]>;
