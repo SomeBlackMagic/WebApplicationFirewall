@@ -21,7 +21,10 @@ export class WAFMiddleware {
         private readonly log?: LoggerInterface,
         private readonly geoIP2?: GeoIP2,
     ) {
-        if (!this.config.detectClientIp.headers) {
+        if (!this.config?.detectClientIp?.headers) {
+            if (!this.config?.detectClientIp) {
+                this.config.detectClientIp = {};
+            }
             this.config.detectClientIp.headers = [];
         }
         if (!jailManager) {
@@ -69,8 +72,17 @@ export class WAFMiddleware {
                 return ruleItem.use(clientIp, req, res, next);
             })
 
-            const result: boolean[] = await Promise.all(promiseList);
-            if (result.some(x => x)) {
+            const result: (false | true | IBannedIPItem)[] = await Promise.all(promiseList);
+            if (result.some(x => x === true)) {
+                res.sendStatus(429);
+                return;
+            }
+            // @ts-ignore
+            const jailObjects: IBannedIPItem[] = result.filter(x => typeof x === 'object' );
+            if(jailObjects.length !== 0) {
+                await Promise.all(jailObjects.map(async (bannedIPItem) => {
+                    await this.jailManager.blockIp(bannedIPItem.ip, bannedIPItem.duration,bannedIPItem.escalationRate);
+                }));
                 res.sendStatus(429);
                 return;
             }
@@ -138,8 +150,8 @@ export class WAFMiddleware {
 
 export interface IWAFMiddlewareConfig {
 
-    detectClientIp: {
-        headers: string[];
+    detectClientIp?: {
+        headers?: string[];
     }
 
     detectClientCountry?: {
@@ -151,4 +163,12 @@ export interface IWAFMiddlewareConfig {
     }
 
 
+}
+
+export interface IBannedIPItem {
+    ruleId: string;
+    ip: string;
+    duration: number;
+    escalationRate: number;
+    requestId?: number;
 }

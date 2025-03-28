@@ -4,11 +4,8 @@ import {JailManager} from "@waf/Jail/JailManager";
 import {WAFMiddleware} from "@waf/WAFMiddleware";
 import {CompositeRule} from "@waf/Rules/CompositeRule";
 import {StaticRule} from "@waf/Rules/StaticRule";
-import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
-// @ts-ignore
-import {DummyRule} from "@test/Helpers/DummyRule";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Whitelist} from "@waf/Whitelist";
-import {MockRequest} from 'node-mocks-http';
 
 
 describe('WAFMiddleware', () => {
@@ -19,6 +16,25 @@ describe('WAFMiddleware', () => {
         jest.useFakeTimers();
         jest.spyOn(global, 'setInterval');
 
+        it('should call next() when the client IP is in whitelist', async () => {
+
+            const whitelist = new Whitelist({});
+            const mockWhitelistCheck = jest.spyOn(whitelist, 'check').mockReturnValue(true);
+
+            const middleware = new WAFMiddleware({}, new JailManager({}), whitelist);
+
+            const next = jest.fn();
+            const req = <Request>{
+                headers: {},
+            };
+            const res = <Response>{};
+
+            await middleware.use()(req, res, next);
+
+            expect(mockWhitelistCheck).toHaveBeenCalledTimes(1);
+            expect(next).toHaveBeenCalledTimes(1);
+        });
+
         it('should call next() when the client IP is not blocked and all rules pass', async () => {
 
             const jailManager = new JailManager({});
@@ -27,7 +43,7 @@ describe('WAFMiddleware', () => {
             const whitelist = new Whitelist({});
             const mockCheck = jest.spyOn(whitelist, 'check').mockReturnValue(false);
 
-            const middleware = new WAFMiddleware({detectClientIp: {headers: []}}, jailManager, whitelist);
+            const middleware = new WAFMiddleware({}, jailManager, whitelist);
 
             const next = jest.fn();
             const req = <Request>{
@@ -53,7 +69,7 @@ describe('WAFMiddleware', () => {
             const whitelist = new Whitelist({});
             const mockCheck = jest.spyOn(whitelist, 'check').mockReturnValue(false);
 
-            const middleware = new WAFMiddleware({detectClientIp: {headers: []}}, jailManager, whitelist);
+            const middleware = new WAFMiddleware({}, jailManager, whitelist);
 
             const req = <Request>{
                 headers: {}
@@ -69,17 +85,13 @@ describe('WAFMiddleware', () => {
             expect(res.sendStatus).toHaveBeenCalledWith(429);
         });
 
-        it('should respond with a 429 status code when any rule fails', async () => {
+        it('should respond with a 429 status code when any rule fails with return true', async () => {
 
-            const failingRule = new DummyRule(true);
+            // @ts-ignore
+            const failingRule = new AbstractRule();
             failingRule.use = jest.fn().mockResolvedValueOnce(true);
 
-            const jailManager = new JailManager({});
-
-            const whitelist = new Whitelist({});
-            const mockCheck = jest.spyOn(whitelist, 'check').mockReturnValue(false);
-
-            const middleware = new WAFMiddleware({detectClientIp: {headers: []}}, jailManager, whitelist);
+            const middleware = new WAFMiddleware({}, new JailManager({}), new Whitelist({}));
             middleware['rules'] = [failingRule];
 
             const req = <Request>{
@@ -92,16 +104,42 @@ describe('WAFMiddleware', () => {
 
             await middleware.use()(req, res, next);
 
-            expect(mockCheck).toHaveBeenCalledTimes(1);
             expect(res.sendStatus).toHaveBeenCalledWith(429);
         });
+
+        it('should respond with a 429 status code when any rule fails with return IBannedIPItem', async () => {
+
+            // @ts-ignore
+            const failingRule = new AbstractRule();
+            failingRule.use = jest.fn().mockResolvedValueOnce({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "abstract"});
+
+            const jailManager = new JailManager({});
+            const mockBlockIp = jest.spyOn(jailManager, 'blockIp').mockResolvedValueOnce();
+
+            const middleware = new WAFMiddleware({}, jailManager, new Whitelist({}));
+            middleware['rules'] = [failingRule];
+
+            const req = <Request>{
+                headers: {}
+            };
+            const res = <Response><unknown>{
+                sendStatus: jest.fn().mockReturnThis(),
+            };
+            const next = jest.fn();
+
+            await middleware.use()(req, res, next);
+
+            expect(res.sendStatus).toHaveBeenCalledWith(429);
+            expect(mockBlockIp).toHaveBeenCalledTimes(1);
+        });
+
     });
 
     describe('loadRules', () => {
         let service;
 
         beforeEach(() => {
-            service = new WAFMiddleware({detectClientIp: {headers: []}});
+            service = new WAFMiddleware({});
         });
 
         it('should load all types of rules', () => {
@@ -149,11 +187,7 @@ describe('WAFMiddleware', () => {
     });
 
     describe('detectClientIp', () => {
-        const jailManager = new JailManager({});
-        const whitelist = new Whitelist({});
-
-        const middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}}, jailManager, whitelist);
-
+        const middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}}, new JailManager({}), new Whitelist({}));
 
         it('should return the IP from headers specified in config', () => {
             const req = {

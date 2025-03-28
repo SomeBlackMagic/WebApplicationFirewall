@@ -1,14 +1,9 @@
 {
   "extends": "./tsconfig.base.json",
-  "exclude": [
-    "node_modules/**"
-  ],
-  "include": ["src"],
+  "exclude": ["node_modules/**"],
+  "include": ["src", "test"],
   "compilerOptions": {
-    "types": [
-      "node",
-      "jest"
-    ],
+    "types": ["jest"],
     "typeRoots": [
       "node_modules/@types",
       "@types",

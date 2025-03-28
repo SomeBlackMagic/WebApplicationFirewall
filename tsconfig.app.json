@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules/**",
+    "test/**/*"
+  ],
+  "include": ["src/**/*"],
+  "compilerOptions": {
+    "types": [
+      "node",
+    ],
+    "rootDirs": ["src", "test"],
+  }
+}
