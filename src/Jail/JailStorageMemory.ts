@@ -1,6 +1,6 @@
-import {JailStorageInterface} from "./JailStorageInterface";
+import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
+import {BanInfo} from "@waf/Jail/JailManager";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {BanInfo} from "./JailManager";
 
 export class JailStorageMemory implements JailStorageInterface {
 

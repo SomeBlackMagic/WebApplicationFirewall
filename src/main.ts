@@ -2,15 +2,15 @@
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import express from "express";
 import audit from 'express-requests-logger'
-import {GeoIP2} from "./GeoIP2";
-import {Log} from "./Log";
-import {envBoolean} from "./Utils";
-import {IJailManagerConfig, JailManager} from "./Jail/JailManager";
-import {IWAFMiddlewareConfig, WAFMiddleware} from "./WAFMiddleware";
-import {Api, IApiConfig} from "./Api";
-import {IAbstractRuleConfig} from "src/Rules/AbstractRule";
-import {ConfigLoader} from "./ConfigLoader";
+import {IWAFMiddlewareConfig, WAFMiddleware} from "@waf/WAFMiddleware";
+import {IJailManagerConfig, JailManager} from "@waf/Jail/JailManager";
 import {IWhitelistConfig, Whitelist} from "@waf/Whitelist";
+import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {Api, IApiConfig} from "@waf/Api";
+import {ConfigLoader} from "@waf/ConfigLoader";
+import {GeoIP2} from "@waf/GeoIP2";
+import {envBoolean} from "@waf/Utils";
+import {Log} from "@waf/Log";
 
 
 // /*catches ctrl+c event*/

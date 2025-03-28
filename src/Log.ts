@@ -1,9 +1,10 @@
-import {env, envBoolean, envNumber} from "./Utils";
+
 import {LogLevel} from "@elementary-lab/logger/src/Types";
 import {Logger} from "@elementary-lab/logger/src/Logger";
 import {ConsoleTarget} from "@elementary-lab/logger/src/Targets/ConsoleTarget";
 import {CategoryExtension} from "@elementary-lab/logger/src/Extensions/CategoryExtension";
 import {AbstractTarget} from "@elementary-lab/logger/src/Targets/AbstractTarget";
+import {env, envBoolean, envNumber} from "@waf/Utils";
 
 
 export class Log {

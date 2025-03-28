@@ -1,10 +1,10 @@
-import {GeoIP2} from "../GeoIP2";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {Log} from "../Log";
-import {JailStorageInterface} from "./JailStorageInterface";
-import {JailStorageMemory} from "./JailStorageMemory";
-import {IJailStorageFileConfig, JailStorageFile} from "./JailStorageFile";
 import assert from "node:assert";
+import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
+import {Log} from "@waf/Log";
+import {JailStorageMemory} from "@waf/Jail/JailStorageMemory";
+import {IJailStorageFileConfig, JailStorageFile} from "@waf/Jail/JailStorageFile";
+import {GeoIP2} from "@waf/GeoIP2";
 
 export class JailManager {
     static #instance: JailManager;

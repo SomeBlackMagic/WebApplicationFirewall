@@ -1,6 +1,6 @@
 import {NextFunction, Request, Response} from "express-serve-static-core";
 import * as core from "express-serve-static-core";
-import {BanInfo, JailManager} from "./Jail/JailManager";
+import {BanInfo, JailManager} from "@waf/Jail/JailManager";
 
 export class Api {
 
