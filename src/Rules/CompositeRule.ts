@@ -1,10 +1,8 @@
-import {AbstractRule, IAbstractRuleConfig} from "./AbstractRule";
-import {NextFunction, Request, Response} from "express-serve-static-core";
-import {GeoIP2} from "../GeoIP2";
-import {Log} from "../Log";
-import {JailManager} from "../Jail/JailManager";
+import {Request, Response} from "express-serve-static-core";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {Log} from "@waf/Log";
 
 
 export class CompositeRule extends AbstractRule {
@@ -24,7 +22,7 @@ export class CompositeRule extends AbstractRule {
 
     private compositeCounters = {};
 
-    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean|IBannedIPItem> {
+    public async use(clientIp: string, country:string, city:string, req: Request): Promise<boolean|IBannedIPItem> {
         let filterValue = ''
         switch (this.rule.for.key) {
             case 'url':
@@ -53,10 +51,10 @@ export class CompositeRule extends AbstractRule {
                 case 'url':
                     return req.url;
                 case 'geo-country': {
-                    return GeoIP2.instance.getCountry(clientIp)?.country?.names?.en || 'undefined';
+                    return country;
                 }
                 case 'geo-city': {
-                    return GeoIP2.instance.getCity(clientIp)?.city?.names?.en || 'undefined';
+                    return city;
                 }
                 default:
                     return '-';

@@ -1,9 +1,8 @@
-import {AbstractRule, IAbstractRuleConfig} from "./AbstractRule";
-import {NextFunction, Request, Response} from "express-serve-static-core";
-import {Log} from "../Log";
+import {Request} from "express-serve-static-core";
 import { LoggerInterface } from '@elementary-lab/standards/src/LoggerInterface';
-import {JailManager} from "../Jail/JailManager";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {Log} from "@waf/Log";
 
 export class FlexibleRule extends AbstractRule {
 
@@ -22,7 +21,7 @@ export class FlexibleRule extends AbstractRule {
         }
     }
 
-    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean|IBannedIPItem> {
+    public async use(clientIp: string, country: string, city: string, req: Request): Promise<boolean|IBannedIPItem> {
         let testedValue: string;
         switch (true) {
             case this.rule.field === 'url':

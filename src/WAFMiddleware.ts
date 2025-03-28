@@ -18,8 +18,8 @@ export class WAFMiddleware {
         private readonly config: IWAFMiddlewareConfig,
         private readonly jailManager?: JailManager,
         private readonly whitelist?: Whitelist,
-        private readonly log?: LoggerInterface,
         private readonly geoIP2?: GeoIP2,
+        private readonly log?: LoggerInterface,
     ) {
         if (!this.config?.detectClientIp?.headers) {
             if (!this.config?.detectClientIp) {
@@ -27,6 +27,7 @@ export class WAFMiddleware {
             }
             this.config.detectClientIp.headers = [];
         }
+
         if (!jailManager) {
             this.jailManager = JailManager.instance;
         }
@@ -43,16 +44,25 @@ export class WAFMiddleware {
         if (!geoIP2) {
             this.geoIP2 = GeoIP2.instance;
         }
+
+        if(!this.config?.detectClientCountry) {
+            this.config.detectClientCountry = {method: 'geoip'}
+        }
+
+        if(!this.config?.detectClientCity) {
+            this.config.detectClientCity = {method: 'geoip'}
+        }
+
     }
 
 
     public use(): RequestHandler {
         return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
             const clientIp = this.detectClientIp(req);
-            const clientGeoCountry = this.detectClientCountry(req, clientIp);
-            const clientGeoCity = this.detectClientCity(req, clientIp);
+            const country = this.detectClientCountry(req, clientIp);
+            const city = this.detectClientCity(req, clientIp);
 
-            if(this.whitelist.check(clientIp, clientGeoCountry, clientGeoCity)) {
+            if(this.whitelist.check(clientIp, country, city)) {
                 next();
                 return;
             }
@@ -69,7 +79,7 @@ export class WAFMiddleware {
             }
 
             const promiseList = this.rules.map((ruleItem: AbstractRule) => {
-                return ruleItem.use(clientIp, req, res, next);
+                return ruleItem.use(clientIp, country, city, req, res);
             })
 
             const result: (false | true | IBannedIPItem)[] = await Promise.all(promiseList);
@@ -139,11 +149,29 @@ export class WAFMiddleware {
     }
 
     public detectClientCountry(req: Request, ip: string): string {
-        return this.geoIP2.getCountry(ip)?.country?.names?.en || 'not-detected';
+        switch (this.config?.detectClientCountry?.method) {
+            case 'header':
+                return req.header(this.config.detectClientCountry.header);
+            case 'geoip':
+                return this.geoIP2.getCountry(ip)?.country?.names?.en || 'not-detected';
+            default:
+                this.log.error('This method of detection country is not supported. Available methods: geoip, header. Default: geoip.');
+                return 'not-detected';
+        }
+
     }
 
     public detectClientCity(req: Request, ip: string): string {
-        return this.geoIP2.getCity(ip)?.city?.names?.en || 'not-detected';
+        switch (this.config?.detectClientCity?.method) {
+            case 'header':
+                return req.header(this.config.detectClientCountry.header);
+            case 'geoip':
+                return this.geoIP2.getCity(ip)?.city?.names?.en || 'not-detected';
+            default:
+                this.log.error('This method of detection city is not supported. Available methods: geoip, header. Default: geoip.');
+                return 'not-detected';
+        }
+
     }
 
 }
@@ -156,10 +184,11 @@ export interface IWAFMiddlewareConfig {
 
     detectClientCountry?: {
         method: 'header' | 'geoip'
-        failover: ""
+        header?: string;
     }
     detectClientCity?: {
         method: 'header' | 'geoip'
+        header?: string;
     }
 
 
