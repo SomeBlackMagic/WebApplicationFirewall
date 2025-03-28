@@ -12,7 +12,7 @@ const config: Config = {
     transform: {
         '^.+\\.tsx?$': [
             'ts-jest',
-            { tsconfig: 'tsconfig.json' }
+            { tsconfig: './tsconfig.json' }
         ]
     },
     roots: ['<rootDir>/src', '<rootDir>/test'],

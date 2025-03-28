@@ -3,6 +3,7 @@ import {NextFunction, Request, Response} from "express-serve-static-core";
 import {Log} from "../Log";
 import { LoggerInterface } from '@elementary-lab/standards/src/LoggerInterface';
 import {JailManager} from "../Jail/JailManager";
+import {IBannedIPItem} from "@waf/WAFMiddleware";
 
 export class FlexibleRule extends AbstractRule {
 
@@ -21,7 +22,7 @@ export class FlexibleRule extends AbstractRule {
         }
     }
 
-    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean> {
+    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean|IBannedIPItem> {
         let testedValue: string;
         switch (true) {
             case this.rule.field === 'url':
@@ -69,8 +70,12 @@ export class FlexibleRule extends AbstractRule {
         // If the number of queries exceeds the limit, we block IP
         if (this.suspicions[clientIp].length >= (this.rule.limit || 100)) {
             this.log.info(`Too many suspicious request from ${clientIp}`, []);
-            await JailManager.instance.blockIp(clientIp, this.rule.duration, this.rule.escalationRate || 1.0 );
-            return true;
+            return {
+                ruleId: FlexibleRule.ID,
+                ip: clientIp,
+                duration: this.rule.duration,
+                escalationRate: this.rule?.escalationRate || 1.0,
+            }
         }
         return false;
 

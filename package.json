@@ -4,7 +4,7 @@
   "module": "src/main.ts",
   "scripts": {
     "run": "ts-node src/main.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.app.json",
     "clean": "rimraf dist build coverage",
     "fix": "run-s fix:eslint fix:prettier",
     "fix:eslint": "eslint . --format stylish --fix",

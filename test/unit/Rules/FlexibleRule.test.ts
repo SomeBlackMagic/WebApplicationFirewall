@@ -1,14 +1,9 @@
 import {FlexibleRule} from "../../../src/Rules/FlexibleRule";
-import {BanInfo, JailManager} from "../../../src/Jail/JailManager";
 // @ts-ignore
 import httpMocks from "node-mocks-http";
 
 describe('FlexibleRule test', () => {
     let rule: FlexibleRule
-    JailManager.build({
-        syncAlways: true
-    }, global.jailStorage)
-    JailManager.instance.onStop();
 
     describe('FlexibleRule test url', () => {
 
@@ -32,7 +27,6 @@ describe('FlexibleRule test', () => {
                 ]
 
             });
-            global.jailStorage.save([]);
         });
 
         it('Equal url match', async () => {
@@ -47,10 +41,8 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
 
         });
 
@@ -66,10 +58,7 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
 
@@ -86,9 +75,6 @@ describe('FlexibleRule test', () => {
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(0);
 
         });
 
@@ -138,10 +124,7 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
 
@@ -160,10 +143,7 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
 
@@ -182,9 +162,6 @@ describe('FlexibleRule test', () => {
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(0);
 
         });
 
@@ -232,10 +209,7 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
 
@@ -254,10 +228,7 @@ describe('FlexibleRule test', () => {
             let result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
-            expect(result).toEqual(true);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(1);
+            expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
 
@@ -276,9 +247,6 @@ describe('FlexibleRule test', () => {
             expect(result).toEqual(false);
             result = await rule.use('1.1.1.1', request, response, next);
             expect(result).toEqual(false);
-
-            const bannedIps: BanInfo[] = await global.jailStorage.load()
-            expect(bannedIps.length).toEqual(0);
 
         });
 

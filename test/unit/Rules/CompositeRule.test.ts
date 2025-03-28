@@ -1,18 +1,9 @@
-import {BanInfo, JailManager} from "../../../src/Jail/JailManager";
-import {CompositeRule} from "../../../src/Rules/CompositeRule";
 // @ts-ignore
 import httpMocks from "node-mocks-http";
+import {CompositeRule} from "@waf/Rules/CompositeRule";
 
 describe('CompositeRule test', () => {
     let rule: CompositeRule
-    JailManager.build({
-        syncAlways: true
-    }, global.jailStorage)
-    JailManager.instance.onStop();
-
-    beforeEach(() => {
-        global.jailStorage.save([]);
-    });
 
     it('Equal url match', async () => {
         rule = new CompositeRule({
@@ -41,14 +32,11 @@ describe('CompositeRule test', () => {
         let result = await rule.use('1.1.1.1', request, response, next);
         expect(result).toEqual(false);
         result = await rule.use('1.1.1.1', request, response, next);
-        expect(result).toEqual(true);
+        expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "composite"});
 
-        const bannedIps: BanInfo[] = await global.jailStorage.load()
-        expect(bannedIps.length).toEqual(1);
 
     });
     it('Equal url not match', async () => {
-
         rule = new CompositeRule({
             type: 'composite',
             duration: 10,
@@ -61,6 +49,7 @@ describe('CompositeRule test', () => {
                 value: '/test'
             }
         });
+
         const request = httpMocks.createRequest({
             method: 'GET',
             url: '/test-not-match',
@@ -76,10 +65,9 @@ describe('CompositeRule test', () => {
         result = await rule.use('1.1.1.1', request, response, next);
         expect(result).toEqual(false);
 
-        const bannedIps: BanInfo[] = await global.jailStorage.load()
-        expect(bannedIps.length).toEqual(0);
 
     });
+
     it('Regexp url match', async () => {
 
         rule = new CompositeRule({
@@ -107,15 +95,13 @@ describe('CompositeRule test', () => {
         let result = await rule.use('1.1.1.1', request, response, next);
         expect(result).toEqual(false);
         result = await rule.use('1.1.1.1', request, response, next);
-        expect(result).toEqual(true);
+        expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "composite"});
 
-        const bannedIps: BanInfo[] = await global.jailStorage.load()
-        expect(bannedIps.length).toEqual(1);
 
     });
 
 
-    it('Regexp url not match', async () => {
+    it('Regexp not match', async () => {
 
         rule = new CompositeRule({
             type: 'composite',
@@ -143,9 +129,6 @@ describe('CompositeRule test', () => {
         expect(result).toEqual(false);
         result = await rule.use('1.1.1.1', request, response, next);
         expect(result).toEqual(false);
-
-        const bannedIps: BanInfo[] = await global.jailStorage.load()
-        expect(bannedIps.length).toEqual(0);
 
     });
 

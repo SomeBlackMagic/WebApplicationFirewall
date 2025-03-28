@@ -1,5 +1,6 @@
 import {IWhitelistConfig, Whitelist} from "@waf/Whitelist";
 
+
 describe('Whitelist', () => {
     const config: IWhitelistConfig = {
         ips: ['192.168.1.1', '10.0.0.1'],
