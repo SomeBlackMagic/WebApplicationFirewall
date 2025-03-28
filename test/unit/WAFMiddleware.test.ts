@@ -6,6 +6,13 @@ import {CompositeRule} from "@waf/Rules/CompositeRule";
 import {StaticRule} from "@waf/Rules/StaticRule";
 import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Whitelist} from "@waf/Whitelist";
+import {GeoIP2} from "@waf/GeoIP2";
+import Country from "@maxmind/geoip2-node/dist/src/models/Country";
+// @ts-ignore
+import {DummyCountryResponse} from "@test/Helpers/DummyCountryResponse";
+// @ts-ignore
+import {DummyCityResponse} from "@test/Helpers/DummyCityResponse";
+import {City} from "@maxmind/geoip2-node";
 
 
 describe('WAFMiddleware', () => {
@@ -236,5 +243,85 @@ describe('WAFMiddleware', () => {
     });
 
 
-})
+    describe('detectClientCountry', () => {
+
+        it('should return the country from geoip when configured to use geoip', () => {
+            const geoIP = new GeoIP2()
+            const mockGetCountry = jest.spyOn(geoIP, 'getCountry').mockReturnValue(new Country(new DummyCountryResponse('United States')));
+
+            const middleware = new WAFMiddleware({detectClientCountry: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), geoIP);
+            const req = <Request>{
+                headers: {}
+            };
+
+            const clientCountry = middleware.detectClientCountry(req, '208.80.152.201');
+            expect(clientCountry).toBe('United States');
+            expect(mockGetCountry).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return the country from header when configured to use header', () => {
+            const middleware = new WAFMiddleware({detectClientCountry: {method: 'header', header: 'x-country'}}, new JailManager({}), new Whitelist({}));
+            // @ts-ignore
+            const req = <Request>{
+                header: jest.fn().mockReturnValue('Germany'),
+            };
+
+            const clientCountry = middleware.detectClientCountry(req, '208.80.152.201');
+            expect(clientCountry).toBe('Germany');
+        });
+
+        it('should return "not-detected" when the method of detection is not supported', () => {
+            // @ts-ignore
+            const middleware = new WAFMiddleware({detectClientCountry: {method: 'unsupported'}}, new JailManager({}), new Whitelist({}));
+            const req = <Request>{
+                headers: {}
+            };
+
+            const clientCountry = middleware.detectClientCountry(req, '208.80.152.201');
+            expect(clientCountry).toBe('not-detected');
+        });
+    });
+    describe('detectClientCity', () => {
+        let middleware;
+        let mockGetCity;
+        let req;
+
+        beforeEach(() => {
+            const geoIP = new GeoIP2();
+            mockGetCity = jest.spyOn(geoIP, 'getCity').mockReturnValue(new City(new DummyCityResponse('Tokyo')));
+            middleware = new WAFMiddleware({detectClientCity: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), geoIP);
+            req = <Request>{
+                headers: {}
+            };
+        });
+
+        it('should return the city from geoip when configured to use geoip', () => {
+            const clientCity = middleware.detectClientCity(req, '192.80.152.202');
+            expect(clientCity).toBe('Tokyo');
+            expect(mockGetCity).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return the city from header when configured to use header', () => {
+            const middleware = new WAFMiddleware({detectClientCity: {method: 'header', header: 'x-city'}}, new JailManager({}), new Whitelist({}));
+            // @ts-ignore
+            const req = <Request>{
+                header: jest.fn().mockReturnValue('Berlin'),
+            };
+
+            const clientCity = middleware.detectClientCity(req, '192.80.152.202');
+            expect(clientCity).toBe('Berlin');
+        });
+
+        it('should return "not-detected" when the method of detection is not supported', () => {
+            // @ts-ignore
+            const middleware = new WAFMiddleware({detectClientCity: {method: 'unsupported'}}, new JailManager({}), new Whitelist({}));
+            const req = <Request>{
+                headers: {}
+            };
+
+            const clientCity = middleware.detectClientCity(req, '192.80.152.202');
+            expect(clientCity).toBe('not-detected');
+        });
+    });
+});
 

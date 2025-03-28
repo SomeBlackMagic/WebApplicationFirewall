@@ -1,6 +1,7 @@
-import {FlexibleRule} from "../../../src/Rules/FlexibleRule";
+
 // @ts-ignore
 import httpMocks from "node-mocks-http";
+import {FlexibleRule} from "@waf/Rules/FlexibleRule";
 
 describe('FlexibleRule test', () => {
     let rule: FlexibleRule
@@ -35,12 +36,10 @@ describe('FlexibleRule test', () => {
                 method: 'GET',
                 url: '/foo',
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
 
@@ -52,12 +51,10 @@ describe('FlexibleRule test', () => {
                 method: 'GET',
                 url: '/wp-admin/foo-bar',
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
@@ -68,12 +65,10 @@ describe('FlexibleRule test', () => {
                 method: 'GET',
                 url: '/wp-aaadmin/foo-bar',
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
 
         });
@@ -118,12 +113,10 @@ describe('FlexibleRule test', () => {
                 }
 
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
@@ -137,12 +130,10 @@ describe('FlexibleRule test', () => {
                 }
 
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
@@ -155,12 +146,10 @@ describe('FlexibleRule test', () => {
                     "user-agent": "Mozilla/6.0 (Linux x86_64; en-US) Gecko/20100101 Firefox/70.3"
                 }
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
 
         });
@@ -203,12 +192,10 @@ describe('FlexibleRule test', () => {
                 }
 
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
@@ -222,12 +209,10 @@ describe('FlexibleRule test', () => {
                 }
 
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
 
         });
@@ -240,12 +225,10 @@ describe('FlexibleRule test', () => {
                     "accept": "image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1"
                 }
             });
-            const response = httpMocks.createResponse();
-            const next = jest.fn();
 
-            let result = await rule.use('1.1.1.1', request, response, next);
+            let result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
-            result = await rule.use('1.1.1.1', request, response, next);
+            result = await rule.use('1.1.1.1', 'none', 'none', request);
             expect(result).toEqual(false);
 
         });
