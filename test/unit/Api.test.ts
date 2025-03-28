@@ -1,6 +1,7 @@
-import {Api, IApiConfig} from "../../src/Api";
+
 import express, {NextFunction, Request, Response} from "express";
 import httpMocks from "node-mocks-http";
+import {Api, IApiConfig} from "@waf/Api";
 
 describe('Api Authentication Middleware', () => {
     let service: Api;

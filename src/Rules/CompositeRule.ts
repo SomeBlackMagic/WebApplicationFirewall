@@ -4,6 +4,7 @@ import {GeoIP2} from "../GeoIP2";
 import {Log} from "../Log";
 import {JailManager} from "../Jail/JailManager";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
+import {IBannedIPItem} from "@waf/WAFMiddleware";
 
 
 export class CompositeRule extends AbstractRule {
@@ -23,7 +24,7 @@ export class CompositeRule extends AbstractRule {
 
     private compositeCounters = {};
 
-    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean> {
+    public async use(clientIp: string, req: Request, res: Response, next: NextFunction): Promise<boolean|IBannedIPItem> {
         let filterValue = ''
         switch (this.rule.for.key) {
             case 'url':
@@ -80,8 +81,12 @@ export class CompositeRule extends AbstractRule {
         // If the number of queries exceeds the limit, we block IP
         if (this.compositeCounters[compositeKey].length >= (this.rule.limit || 100)) {
             this.log.info(`The composite rule worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`, [], 'rules.CompositeRule');
-            await JailManager.instance.blockIp(clientIp, this.rule.duration, this.rule?.escalationRate || 1.0 );
-            return true;
+            return {
+                ruleId: CompositeRule.ID,
+                ip: clientIp,
+                duration: this.rule.duration,
+                escalationRate: this.rule?.escalationRate || 1.0,
+            }
         }
 
         return false;
