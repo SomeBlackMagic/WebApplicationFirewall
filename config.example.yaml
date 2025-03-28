@@ -29,27 +29,35 @@ rules:
     updateInterval: 120000
 
   - type: "composite"
-    keys: ["ip", "user-agent", "url"] # geo-country, geo-city
-    for:
-      key: 'url'
-      correlationMethod: 'eq' # or regexp
-      value: '/test'
-    period: 60                         # Period in seconds for which the number of requests is considered
-    limit: 5                           # If during the period the number of requests exceeds the limit, ban
-    duration: 180                      # Blocking by 180 seconds when the limit exceeds
-    #escalationRate: 2
+    keys: ["ip", "user-agent", "hostname", "url", "geo-country", "geo-city"]
+    conditions:
+      - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+        method: 'equals'
+        values: [ "/admin.php" ]
+
+      - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+        method: 'regexp'
+        values: ["/wp-(admin|include|content)/i"]
+
+    period: 60             # Period in seconds for which the number of requests is considered
+    limit: 5               # If during the period the number of requests exceeds the limit, ban
+    duration: 180          # Blocking by 180 seconds when the limit exceeds
+    escalationRate: 2     # OPTIONAL
 
 
   - type: "flexible"
-    field: "url" # or user-agent, header-<header-name>
-    scan:
-      - method: 'regexp'
+    conditions:
+      - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+        method: 'equals'
+        values: [ "/admin.php" ]
+
+      - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+        method: 'regexp'
         values: ["/wp-(admin|include|content)/i"]
 
-      - method: 'equals'
-        values: ["/admin.php"]
 
-    period: 60                         # Period in seconds for which the number of requests is considered
-    limit: 5                           # If during the period the number of requests exceeds the limit, ban
-    duration: 180                      # Blocking by 180 seconds when the limit exceeds
-    #escalationRate: 2
+
+    period: 60            # Period in seconds for which the number of requests is considered
+    limit: 5              # If during the period the number of requests exceeds the limit, ban
+    duration: 180         # Blocking by 180 seconds when the limit exceeds
+    escalationRate: 2     # OPTIONAL
