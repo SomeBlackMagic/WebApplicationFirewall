@@ -3,7 +3,8 @@ import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
-import {ConditionsRule} from "@waf/Rules/ConditionsRule";
+import {ConditionsRule, IConditionsRule} from "@waf/Rules/ConditionsRule";
+
 
 export class FlexibleRule extends ConditionsRule {
 
@@ -62,12 +63,7 @@ export class FlexibleRule extends ConditionsRule {
 }
 
 export interface IFlexibleRuleConfig extends IAbstractRuleConfig {
-    conditions: {
-        field: string
-        method: "regexp" | "equals"
-        values: string[]
-    }[]
-
+    conditions: IConditionsRule[]
     period: number
     limit: number
     duration: number

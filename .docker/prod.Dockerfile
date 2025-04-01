@@ -17,11 +17,12 @@ RUN --mount=type=cache,sharing=shared,id=npm_cache,target=/root/.npm npm install
 
 FROM gcr.io/distroless/nodejs22-debian12
 
+WORKDIR /app
+
 ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
 
-COPY --from=builder /app/node_modules /node_modules
+COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/dist/ /app
 
-
-CMD ["node", "--enable-source-maps", "/app/main.js"]
+CMD ["--enable-source-maps", "/app/main.js"]
