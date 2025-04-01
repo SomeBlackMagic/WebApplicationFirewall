@@ -1,7 +1,7 @@
-import {Request, Response} from "express-serve-static-core";
+import {Request} from "express-serve-static-core";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
-import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
+import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
 import {ConditionsRule, IConditionsRule} from "@waf/Rules/ConditionsRule";
 

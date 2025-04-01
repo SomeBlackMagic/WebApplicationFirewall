@@ -42,5 +42,4 @@ test/**/*.test.js.map
 
 test/Helpers/*.js
 test/Helpers/*.js.map
-
-
+bin

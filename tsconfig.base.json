@@ -10,6 +10,7 @@
     "downlevelIteration": true,
     "importHelpers": true,
     "inlineSources": true,
+    "inlineSourceMap": true,
     "lib": ["es5", "es6", "es7", "dom"],
     "moduleResolution": "node",
     "noEmitHelpers": false,

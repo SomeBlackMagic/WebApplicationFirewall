@@ -1,4 +1,4 @@
-
+'use strict'
 import {createProxyMiddleware} from 'http-proxy-middleware';
 import express from "express";
 import audit from 'express-requests-logger'
@@ -9,8 +9,12 @@ import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Api, IApiConfig} from "@waf/Api";
 import {ConfigLoader} from "@waf/ConfigLoader";
 import {GeoIP2} from "@waf/GeoIP2";
-import {envBoolean} from "@waf/Utils";
+import {env, envBoolean} from "@waf/Utils";
 import {Log} from "@waf/Log";
+
+import sourceMapSupport from 'source-map-support'
+sourceMapSupport.install()
+
 
 
 // /*catches ctrl+c event*/
@@ -27,7 +31,7 @@ process.on('SIGUSR1', exitHandler.bind(null, {exit: true, code:'SIGUSR1'}));
 process.on('SIGUSR2', exitHandler.bind(null, {exit: true, code:'SIGUSR2'}));
 process.on('SIGTERM', exitHandler.bind(null, {exit: true, code:'SIGTERM'}));
 
-console.log('Start Application:', process.env.APP_VERSION);
+console.log('Start Application:', env('APP_VERSION', 'dev-dirty'));
 
 interface AppConfig {
     proxy: {
@@ -48,7 +52,7 @@ interface AppConfig {
     JailManager.build(appConfig.jailManager);
     Whitelist.build(appConfig.whitelist);
 
-    const waf = new WAFMiddleware(appConfig.wafMiddleware);
+    const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
     waf.loadRules(appConfig.rules)
 
 
