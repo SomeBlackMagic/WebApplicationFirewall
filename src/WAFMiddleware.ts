@@ -9,15 +9,21 @@ import {JailManager} from "@waf/Jail/JailManager";
 import {Log} from "@waf/Log";
 import {CompositeRule, ICompositeRuleConfig} from "@waf/Rules/CompositeRule";
 import {IStaticRuleConfig, StaticRule} from "@waf/Rules/StaticRule";
+import * as promClient from "prom-client";
+import {Metrics} from "@waf/Metrics/Metrics";
+import {Metric} from "prom-client";
 
 export class WAFMiddleware {
 
     private rules: AbstractRule[] = [];
 
+    private metrics: Metric[] = [];
+
     public constructor(
         private readonly config: IWAFMiddlewareConfig,
         private readonly jailManager?: JailManager,
         private readonly whitelist?: Whitelist,
+        private readonly metricsInstance?: Metrics,
         private readonly geoIP2?: GeoIP2,
         private readonly log?: LoggerInterface,
     ) {
@@ -27,6 +33,9 @@ export class WAFMiddleware {
             }
             this.config.detectClientIp.headers = [];
         }
+        if(!metricsInstance) {
+            this.metricsInstance = Metrics.instance;
+        }
 
         if (!jailManager) {
             this.jailManager = JailManager.instance;
@@ -35,7 +44,6 @@ export class WAFMiddleware {
         if (!whitelist) {
             this.whitelist = Whitelist.instance;
         }
-
 
         if (!log) {
             this.log = Log.instance.withCategory('app.WAFMiddleware')
@@ -52,9 +60,39 @@ export class WAFMiddleware {
         if(!this.config?.detectClientCity) {
             this.config.detectClientCity = {method: 'geoip'}
         }
-
+        if(this.metricsInstance.isEnabled()) {
+            this.bootstrapMetrics();
+        }
     }
 
+
+    public bootstrapMetrics() {
+        this.metrics['whitelist'] = new promClient.Counter({
+            name: 'waf_middleware_whitelist',
+            help: 'Count of users who allowed by whitelist',
+            labelNames: ['country', 'city'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+        this.metrics['reject_static'] = new promClient.Counter({
+            name: 'waf_middleware_reject_static',
+            help: 'Count of rejected by static',
+            labelNames: ['country', 'city'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+        this.metrics['reject_and_ban'] = new promClient.Counter({
+            name: 'waf_middleware_reject_and_ban',
+            help: 'Count of rejected by static',
+            labelNames: ['country', 'city'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+
+        this.metrics['jail_banned_user_request'] = new promClient.Counter({
+            name: 'waf_middleware_jail_banned_user_request',
+            help: 'Count of rejected by jail manager - user is banned',
+            labelNames: ['country', 'city'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+    }
 
     public use(): RequestHandler {
         return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -63,6 +101,7 @@ export class WAFMiddleware {
             const city = this.detectClientCity(req, clientIp);
 
             if(this.whitelist.check(clientIp, country, city)) {
+                this.metrics['whitelist']?.inc({country, city});
                 next();
                 return;
             }
@@ -72,6 +111,7 @@ export class WAFMiddleware {
 
             if (blockedUser !== false) {
                 if (blockedUser.unbanTime > Date.now()) {
+                    this.metrics['jail_banned_user_request']?.inc({country, city});
                     this.log.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.geoCountry, blockedUser.geoCountry]);
                     res.sendStatus(429);
                     return;
@@ -84,6 +124,7 @@ export class WAFMiddleware {
 
             const result: (false | true | IBannedIPItem)[] = await Promise.all(promiseList);
             if (result.some(x => x === true)) {
+                this.metrics['reject_static']?.inc({country, city});
                 res.sendStatus(429);
                 return;
             }
@@ -93,6 +134,7 @@ export class WAFMiddleware {
                 await Promise.all(jailObjects.map(async (bannedIPItem) => {
                     await this.jailManager.blockIp(bannedIPItem.ip, bannedIPItem.duration,bannedIPItem.escalationRate);
                 }));
+                this.metrics['reject_and_ban']?.inc({country, city});
                 res.sendStatus(429);
                 return;
             }
@@ -151,7 +193,7 @@ export class WAFMiddleware {
     public detectClientCountry(req: Request, ip: string): string {
         switch (this.config?.detectClientCountry?.method) {
             case 'header':
-                return req.header(this.config.detectClientCountry.header);
+                return req.header(this.config.detectClientCountry.header) || 'not-detected';
             case 'geoip':
                 return this.geoIP2.getCountry(ip)?.country?.names?.en || 'not-detected';
             default:

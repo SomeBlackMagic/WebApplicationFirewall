@@ -13,6 +13,7 @@ import {env, envBoolean} from "@waf/Utils";
 import {Log} from "@waf/Log";
 
 import sourceMapSupport from 'source-map-support'
+import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
 sourceMapSupport.install()
 
 
@@ -40,8 +41,9 @@ interface AppConfig {
     wafMiddleware: IWAFMiddlewareConfig,
     jailManager: IJailManagerConfig
     whitelist: IWhitelistConfig,
-    rules: IAbstractRuleConfig[]
-    api: IApiConfig
+    rules: IAbstractRuleConfig[],
+    api: IApiConfig,
+    metrics: IMetricsConfig
 
 }
 
@@ -52,16 +54,17 @@ interface AppConfig {
     JailManager.build(appConfig.jailManager);
     Whitelist.build(appConfig.whitelist);
 
-    const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
-    waf.loadRules(appConfig.rules)
-
-
     const app = express();
     app.disable('x-powered-by');
 
     const api = new Api(appConfig.api, app);
     api.bootstrap();
 
+    Metrics.build(appConfig.metrics, app)
+    Metrics.instance.bootstrap();
+
+    const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
+    waf.loadRules(appConfig.rules)
 
     app.get('/waf/healthz', (req, res) => {
         res.send("Hello from WAF server!");
