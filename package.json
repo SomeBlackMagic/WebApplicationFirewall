@@ -24,6 +24,7 @@
     "@maxmind/geoip2-node": "^6.0.0",
     "express": "^4.21.2",
     "express-http-auth": "^0.1.0",
+    "express-prom-bundle": "^8.0.0",
     "express-requests-logger": "^4.0.1",
     "http-proxy-middleware": "^3.0.3",
     "ip": "^2.0.1",

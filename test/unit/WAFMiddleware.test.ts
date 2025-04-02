@@ -13,22 +13,36 @@ import {DummyCountryResponse} from "@test/Helpers/DummyCountryResponse";
 // @ts-ignore
 import {DummyCityResponse} from "@test/Helpers/DummyCityResponse";
 import {City} from "@maxmind/geoip2-node";
+import {Metrics} from "@waf/Metrics/Metrics";
+import {Registry} from "prom-client";
 
 
 describe('WAFMiddleware', () => {
-    jest.useFakeTimers();
-    jest.spyOn(global, 'setInterval');
-
-    describe('use', () => {
+    let metricRegister;
+    beforeAll(() => {
+        metricRegister = new Registry();
         jest.useFakeTimers();
         jest.spyOn(global, 'setInterval');
+    })
+
+    describe('use', () => {
+        let metrics;
+        beforeAll(() => {
+            metrics = new Metrics({enabled: true, auth: {enabled: false}}, jest.mock('express') as any, metricRegister);
+        })
+
+        afterEach(() => {
+            metricRegister.clear();
+            jest.clearAllMocks();
+        });
+
 
         it('should call next() when the client IP is in whitelist', async () => {
 
             const whitelist = new Whitelist({});
             const mockWhitelistCheck = jest.spyOn(whitelist, 'check').mockReturnValue(true);
 
-            const middleware = new WAFMiddleware({}, new JailManager({}), whitelist);
+            const middleware = new WAFMiddleware({}, new JailManager({}), whitelist, metrics);
 
             const next = jest.fn();
             const req = <Request>{
@@ -40,6 +54,13 @@ describe('WAFMiddleware', () => {
 
             expect(mockWhitelistCheck).toHaveBeenCalledTimes(1);
             expect(next).toHaveBeenCalledTimes(1);
+            expect(await metricRegister.getSingleMetric('waf_middleware_whitelist').get()).toEqual({
+                "aggregator": "sum",
+                "help": "Count of users who allowed by whitelist",
+                "name": "waf_middleware_whitelist",
+                "type": "counter",
+                "values": [{"labels": {"city": "not-detected", "country": "not-detected"}, "value": 1}]
+            });
         });
 
         it('should call next() when the client IP is not blocked and all rules pass', async () => {
@@ -76,7 +97,7 @@ describe('WAFMiddleware', () => {
             const whitelist = new Whitelist({});
             const mockCheck = jest.spyOn(whitelist, 'check').mockReturnValue(false);
 
-            const middleware = new WAFMiddleware({}, jailManager, whitelist);
+            const middleware = new WAFMiddleware({}, jailManager, whitelist, metrics);
 
             const req = <Request>{
                 headers: {}
@@ -90,6 +111,21 @@ describe('WAFMiddleware', () => {
 
             expect(mockCheck).toHaveBeenCalledTimes(1);
             expect(res.sendStatus).toHaveBeenCalledWith(429);
+            expect(await metricRegister.getSingleMetric('waf_middleware_jail_banned_user_request').get()).toEqual({
+                "aggregator": "sum",
+                "help": "Count of rejected by jail manager - user is banned",
+                "name": "waf_middleware_jail_banned_user_request",
+                "type": "counter",
+                "values": [
+                    {
+                        "labels": {
+                            "city": "not-detected",
+                            "country": "not-detected"
+                        },
+                        "value": 1
+                    }
+                ]
+            });
         });
 
         it('should respond with a 429 status code when any rule fails with return true', async () => {
@@ -98,7 +134,7 @@ describe('WAFMiddleware', () => {
             const failingRule = new AbstractRule();
             failingRule.use = jest.fn().mockResolvedValueOnce(true);
 
-            const middleware = new WAFMiddleware({}, new JailManager({}), new Whitelist({}));
+            const middleware = new WAFMiddleware({}, new JailManager({}), new Whitelist({}), metrics);
             middleware['rules'] = [failingRule];
 
             const req = <Request>{
@@ -112,18 +148,38 @@ describe('WAFMiddleware', () => {
             await middleware.use()(req, res, next);
 
             expect(res.sendStatus).toHaveBeenCalledWith(429);
+            expect(await metricRegister.getSingleMetric('waf_middleware_reject_static').get()).toEqual({
+                "aggregator": "sum",
+                "help": "Count of rejected by static",
+                "name": "waf_middleware_reject_static",
+                "type": "counter",
+                "values": [
+                    {
+                        "labels": {
+                            "city": "not-detected",
+                            "country": "not-detected"
+                        },
+                        "value": 1
+                    }
+                ]
+            });
         });
 
         it('should respond with a 429 status code when any rule fails with return IBannedIPItem', async () => {
 
             // @ts-ignore
             const failingRule = new AbstractRule();
-            failingRule.use = jest.fn().mockResolvedValueOnce({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "abstract"});
+            failingRule.use = jest.fn().mockResolvedValueOnce({
+                "duration": 10,
+                "escalationRate": 1,
+                "ip": "1.1.1.1",
+                "ruleId": "abstract"
+            });
 
             const jailManager = new JailManager({});
             const mockBlockIp = jest.spyOn(jailManager, 'blockIp').mockResolvedValueOnce();
 
-            const middleware = new WAFMiddleware({}, jailManager, new Whitelist({}));
+            const middleware = new WAFMiddleware({}, jailManager, new Whitelist({}), metrics);
             middleware['rules'] = [failingRule];
 
             const req = <Request>{
@@ -138,7 +194,23 @@ describe('WAFMiddleware', () => {
 
             expect(res.sendStatus).toHaveBeenCalledWith(429);
             expect(mockBlockIp).toHaveBeenCalledTimes(1);
+            expect(await metricRegister.getSingleMetric('waf_middleware_reject_and_ban').get()).toEqual({
+                "aggregator": "sum",
+                "help": "Count of rejected by static",
+                "name": "waf_middleware_reject_and_ban",
+                "type": "counter",
+                "values": [
+                    {
+                        "labels": {
+                            "city": "not-detected",
+                            "country": "not-detected"
+                        },
+                        "value": 1
+                    }
+                ]
+            });
         });
+
 
     });
 
@@ -194,7 +266,11 @@ describe('WAFMiddleware', () => {
     });
 
     describe('detectClientIp', () => {
-        const middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}}, new JailManager({}), new Whitelist({}));
+        let middleware;
+        beforeAll(() => {
+            middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}}, new JailManager({}), new Whitelist({}));
+        })
+
 
         it('should return the IP from headers specified in config', () => {
             const req = {
@@ -247,9 +323,11 @@ describe('WAFMiddleware', () => {
 
         it('should return the country from geoip when configured to use geoip', () => {
             const geoIP = new GeoIP2()
+            // @ts-ignore
+            const metrics = new Metrics({enabled: false, auth: {enabled: false}}, jest.mock('express'));
             const mockGetCountry = jest.spyOn(geoIP, 'getCountry').mockReturnValue(new Country(new DummyCountryResponse('United States')));
 
-            const middleware = new WAFMiddleware({detectClientCountry: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), geoIP);
+            const middleware = new WAFMiddleware({detectClientCountry: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), metrics, geoIP);
             const req = <Request>{
                 headers: {}
             };
@@ -260,7 +338,12 @@ describe('WAFMiddleware', () => {
         });
 
         it('should return the country from header when configured to use header', () => {
-            const middleware = new WAFMiddleware({detectClientCountry: {method: 'header', header: 'x-country'}}, new JailManager({}), new Whitelist({}));
+            const middleware = new WAFMiddleware({
+                detectClientCountry: {
+                    method: 'header',
+                    header: 'x-country'
+                }
+            }, new JailManager({}), new Whitelist({}));
             // @ts-ignore
             const req = <Request>{
                 header: jest.fn().mockReturnValue('Germany'),
@@ -288,8 +371,10 @@ describe('WAFMiddleware', () => {
 
         beforeEach(() => {
             const geoIP = new GeoIP2();
+            // @ts-ignore
+            const metrics = new Metrics({enabled: false, auth: {enabled: false}}, jest.mock('express'));
             mockGetCity = jest.spyOn(geoIP, 'getCity').mockReturnValue(new City(new DummyCityResponse('Tokyo')));
-            middleware = new WAFMiddleware({detectClientCity: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), geoIP);
+            middleware = new WAFMiddleware({detectClientCity: {method: 'geoip'}}, new JailManager({}), new Whitelist({}), metrics, geoIP);
             req = <Request>{
                 headers: {}
             };
@@ -302,7 +387,12 @@ describe('WAFMiddleware', () => {
         });
 
         it('should return the city from header when configured to use header', () => {
-            const middleware = new WAFMiddleware({detectClientCity: {method: 'header', header: 'x-city'}}, new JailManager({}), new Whitelist({}));
+            const middleware = new WAFMiddleware({
+                detectClientCity: {
+                    method: 'header',
+                    header: 'x-city'
+                }
+            }, new JailManager({}), new Whitelist({}));
             // @ts-ignore
             const req = <Request>{
                 header: jest.fn().mockReturnValue('Berlin'),

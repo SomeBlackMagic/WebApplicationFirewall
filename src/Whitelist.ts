@@ -20,7 +20,7 @@ export class Whitelist {
             return;
         }
 
-        throw new Error('JailManager is already instantiated.');
+        throw new Error('Whitelist is already instantiated.');
     }
 
 
@@ -34,28 +34,28 @@ export class Whitelist {
     }
 
     public check(clientIp: string, clientGeoCountry: string, clientGeoCity: string): boolean {
-        if (this.config.ips && this.config.ips.length > 0) {
+        if (this.config?.ips && this.config.ips.length > 0) {
             if(this.validateIncludeIPS(clientIp)) {
                 this.log.trace('Request from whitelisted IP', [clientIp]);
                 return true;
             }
         }
 
-        if (this.config.ipSubnet && this.config.ipSubnet.length > 0) {
+        if (this.config?.ipSubnet && this.config.ipSubnet.length > 0) {
             if(this.validateIncludeIPSubnet(clientIp)) {
                 this.log.trace('Request from whitelisted IP subnet', [clientIp]);
                 return true;
             }
         }
 
-        if (this.config.geoCountry && this.config.geoCountry.length > 0) {
+        if (this.config?.geoCountry && this.config.geoCountry.length > 0) {
             if(this.validateCountry(clientGeoCountry)) {
                 this.log.trace('Request from whitelisted country', [clientGeoCountry]);
                 return true;
             }
         }
 
-        if (this.config.geoCity && this.config.geoCity.length > 0) {
+        if (this.config?.geoCity && this.config.geoCity.length > 0) {
             if(this.validateCity(clientGeoCity)) {
                 this.log.trace('Request from whitelisted city', [clientGeoCity]);
                 return true;

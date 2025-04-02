@@ -32,7 +32,7 @@ describe('Whitelist', () => {
     });
 
     test('check method - no whitelist match', () => {
-        expect(whitelist.check('192.168.3.1', 'UA', 'Kiev')).toBeFalsy();
+        expect(whitelist.check('192.168.3.1', 'UA', 'Kyiv')).toBeFalsy();
         expect(whitelist.check('192.168.3.1', 'US', 'San Francisco')).toBeFalsy();
     });
 });
