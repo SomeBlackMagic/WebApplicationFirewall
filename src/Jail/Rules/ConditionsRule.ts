@@ -1,5 +1,6 @@
-import {AbstractRule} from "@waf/Rules/AbstractRule";
+
 import {Request} from "express-serve-static-core";
+import {AbstractRule} from "@waf/Jail/Rules/AbstractRule";
 
 export abstract class ConditionsRule extends AbstractRule {
 

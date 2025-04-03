@@ -1,9 +1,9 @@
 import {Request} from "express-serve-static-core";
 import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {IBannedIPItem} from "@waf/WAFMiddleware";
-import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
-import {ConditionsRule, IConditionsRule} from "@waf/Rules/ConditionsRule";
+import {ConditionsRule, IConditionsRule} from "@waf/Jail/Rules/ConditionsRule";
+import {IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
 
 
 export class FlexibleRule extends ConditionsRule {

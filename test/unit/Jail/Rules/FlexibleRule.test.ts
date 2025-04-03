@@ -1,7 +1,7 @@
 
 // @ts-ignore
 import httpMocks from "node-mocks-http";
-import {FlexibleRule} from "@waf/Rules/FlexibleRule";
+import {FlexibleRule} from "@waf/Jail/Rules/FlexibleRule";
 
 describe('FlexibleRule test', () => {
     let rule: FlexibleRule

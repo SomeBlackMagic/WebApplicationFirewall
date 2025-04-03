@@ -1,7 +1,6 @@
 // @ts-ignore
 import httpMocks from "node-mocks-http";
-import {CompositeRule} from "@waf/Rules/CompositeRule";
-import {FlexibleRule} from "@waf/Rules/FlexibleRule";
+import {CompositeRule} from "@waf/Jail/Rules/CompositeRule";
 
 describe('CompositeRule test', () => {
 
