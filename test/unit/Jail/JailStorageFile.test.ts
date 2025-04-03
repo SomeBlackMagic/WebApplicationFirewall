@@ -1,7 +1,7 @@
 import fs, {promises as fsPromises} from "fs";
-import {JailStorageFile} from "../../../src/Jail/JailStorageFile";
 import lockfile from "proper-lockfile";
-import {BanInfo} from "../../../src/Jail/JailManager";
+import {BanInfo} from "@waf/Jail/JailManager";
+import {JailStorageFile} from "@waf/Jail/JailStorageFile";
 
 describe('JailStorageFile test', () => {
 

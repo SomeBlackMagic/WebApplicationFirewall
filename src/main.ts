@@ -4,16 +4,16 @@ import express from "express";
 import audit from 'express-requests-logger'
 import {IWAFMiddlewareConfig, WAFMiddleware} from "@waf/WAFMiddleware";
 import {IJailManagerConfig, JailManager} from "@waf/Jail/JailManager";
-import {IWhitelistConfig, Whitelist} from "@waf/Whitelist";
-import {IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Api, IApiConfig} from "@waf/Api";
 import {ConfigLoader} from "@waf/ConfigLoader";
 import {GeoIP2} from "@waf/GeoIP2";
-import {env, envBoolean} from "@waf/Utils";
+import {env, envBoolean} from "@waf/Utils/Env";
 import {Log} from "@waf/Log";
 
 import sourceMapSupport from 'source-map-support'
 import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
+import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
+import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
 sourceMapSupport.install()
 
 
@@ -41,7 +41,7 @@ interface AppConfig {
     wafMiddleware: IWAFMiddlewareConfig,
     jailManager: IJailManagerConfig
     whitelist: IWhitelistConfig,
-    rules: IAbstractRuleConfig[],
+    blacklist: IBlacklistConfig,
     api: IApiConfig,
     metrics: IMetricsConfig
 
@@ -51,8 +51,6 @@ interface AppConfig {
     const appConfig = await new ConfigLoader().load<AppConfig>()
 
     await GeoIP2.instance.init()
-    JailManager.build(appConfig.jailManager);
-    Whitelist.build(appConfig.whitelist);
 
     const app = express();
     app.disable('x-powered-by');
@@ -63,8 +61,11 @@ interface AppConfig {
     Metrics.build(appConfig.metrics, app)
     Metrics.instance.bootstrap();
 
+    JailManager.build(appConfig.jailManager);
+    Whitelist.build(appConfig.whitelist);
+    Blacklist.build(appConfig.blacklist);
+
     const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
-    waf.loadRules(appConfig.rules)
 
     app.get('/waf/healthz', (req, res) => {
         res.send("Hello from WAF server!");

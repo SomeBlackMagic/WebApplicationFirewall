@@ -7,8 +7,6 @@ export class Api {
 
     private readonly authenticator: HttpBasicAuth
 
-    public readonly authenticationMiddleware: (req: Request, res: Response, next: NextFunction) => void;
-
     public constructor(
         private readonly moduleConfig: IApiConfig,
         private readonly webApp: core.Express,

@@ -1,7 +1,7 @@
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {clearInterval} from "node:timers";
-import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {Log} from "@waf/Log";
+import {AbstractRule, IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
 
 
 export class StaticRule extends AbstractRule {

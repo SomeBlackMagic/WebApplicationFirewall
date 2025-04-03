@@ -4,7 +4,7 @@ import * as core from "express-serve-static-core";
 import * as client from "prom-client";
 import {Request, Response} from "express-serve-static-core";
 import {HttpBasicAuth, IHttpBasicAuthConfig} from "@waf/Utils/HttpBasicAuth";
-import {env} from "@waf/Utils";
+import {env} from "@waf/Utils/Env";
 import crypto from 'crypto';
 import express_prom_bundle from "express-prom-bundle";
 import {Registry} from "prom-client";
@@ -68,7 +68,6 @@ export class Metrics {
             includePath: false,
             includeStatusCode: true,
             includeUp: false,
-            // customLabels: {project_name: 'hello_world', project_type: 'test_metrics_labels'},
             promRegistry: this.registerMetrics,
             httpDurationMetricName: 'waf_http_duration_seconds'
         }));
