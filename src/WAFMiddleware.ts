@@ -2,20 +2,15 @@ import {RequestHandler} from "express";
 import {NextFunction, Request, Response} from "express-serve-static-core";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {GeoIP2} from "@waf/GeoIP2";
-import {Whitelist} from "@waf/Whitelist";
-import {FlexibleRule, IFlexibleRuleConfig} from "@waf/Rules/FlexibleRule";
-import {AbstractRule, IAbstractRuleConfig} from "@waf/Rules/AbstractRule";
 import {JailManager} from "@waf/Jail/JailManager";
 import {Log} from "@waf/Log";
-import {CompositeRule, ICompositeRuleConfig} from "@waf/Rules/CompositeRule";
-import {IStaticRuleConfig, StaticRule} from "@waf/Rules/StaticRule";
 import * as promClient from "prom-client";
 import {Metrics} from "@waf/Metrics/Metrics";
 import {Metric} from "prom-client";
+import {Whitelist} from "@waf/Static/Whitelist";
+import {Blacklist} from "@waf/Static/Blacklist";
 
 export class WAFMiddleware {
-
-    private rules: AbstractRule[] = [];
 
     private metrics: Metric[] = [];
 
@@ -23,6 +18,7 @@ export class WAFMiddleware {
         private readonly config: IWAFMiddlewareConfig,
         private readonly jailManager?: JailManager,
         private readonly whitelist?: Whitelist,
+        private readonly blacklist?: Blacklist,
         private readonly metricsInstance?: Metrics,
         private readonly geoIP2?: GeoIP2,
         private readonly log?: LoggerInterface,
@@ -43,6 +39,10 @@ export class WAFMiddleware {
 
         if (!whitelist) {
             this.whitelist = Whitelist.instance;
+        }
+
+        if (!blacklist) {
+            this.blacklist = Blacklist.instance;
         }
 
         if (!log) {
@@ -73,22 +73,15 @@ export class WAFMiddleware {
             labelNames: ['country', 'city'],
             registers: [this.metricsInstance.getRegisters()]
         });
-        this.metrics['reject_static'] = new promClient.Counter({
-            name: 'waf_middleware_reject_static',
-            help: 'Count of rejected by static',
+        this.metrics['blacklist'] = new promClient.Counter({
+            name: 'waf_middleware_blacklist',
+            help: 'Count of users who rejected by blacklist',
             labelNames: ['country', 'city'],
             registers: [this.metricsInstance.getRegisters()]
         });
-        this.metrics['reject_and_ban'] = new promClient.Counter({
-            name: 'waf_middleware_reject_and_ban',
-            help: 'Count of rejected by static',
-            labelNames: ['country', 'city'],
-            registers: [this.metricsInstance.getRegisters()]
-        });
-
-        this.metrics['jail_banned_user_request'] = new promClient.Counter({
-            name: 'waf_middleware_jail_banned_user_request',
-            help: 'Count of rejected by jail manager - user is banned',
+        this.metrics['jail_reject'] = new promClient.Counter({
+            name: 'waf_middleware_jail_reject_request',
+            help: 'Count of rejected by Jail Manager - user is banned',
             labelNames: ['country', 'city'],
             registers: [this.metricsInstance.getRegisters()]
         });
@@ -106,64 +99,22 @@ export class WAFMiddleware {
                 return;
             }
 
-
-            const blockedUser = this.jailManager.getBlockedIp(clientIp);
-
-            if (blockedUser !== false) {
-                if (blockedUser.unbanTime > Date.now()) {
-                    this.metrics['jail_banned_user_request']?.inc({country, city});
-                    this.log.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.geoCountry, blockedUser.geoCountry]);
-                    res.sendStatus(429);
-                    return;
-                }
-            }
-
-            const promiseList = this.rules.map((ruleItem: AbstractRule) => {
-                return ruleItem.use(clientIp, country, city, req, res);
-            })
-
-            const result: (false | true | IBannedIPItem)[] = await Promise.all(promiseList);
-            if (result.some(x => x === true)) {
-                this.metrics['reject_static']?.inc({country, city});
+            if(this.blacklist.check(clientIp, country, city)) {
+                this.metrics['blacklist']?.inc({country, city});
+                this.log.trace('Request from blacklist  IP rejected', [clientIp, country, city]);
                 res.sendStatus(429);
                 return;
             }
-            // @ts-ignore
-            const jailObjects: IBannedIPItem[] = result.filter(x => typeof x === 'object' );
-            if(jailObjects.length !== 0) {
-                await Promise.all(jailObjects.map(async (bannedIPItem) => {
-                    await this.jailManager.blockIp(bannedIPItem.ip, bannedIPItem.duration,bannedIPItem.escalationRate);
-                }));
-                this.metrics['reject_and_ban']?.inc({country, city});
+
+            if(await this.jailManager.check(clientIp, country, city, req, res)) {
+                this.metrics['jail_reject']?.inc({country, city});
+                this.log.trace('Request from jail IP rejected', [clientIp, country, city]);
                 res.sendStatus(429);
                 return;
             }
 
             next();
         };
-    }
-
-
-    public loadRules(rulesConfig: IAbstractRuleConfig[]) {
-        this.rules = [];
-        for (const rule of rulesConfig) {
-            switch (rule.type) {
-                case CompositeRule.ID:
-                    this.rules.push(new CompositeRule(<ICompositeRuleConfig>rule));
-                    break;
-                case StaticRule.ID:
-                    this.rules.push(new StaticRule(<IStaticRuleConfig>rule));
-                    break;
-                case FlexibleRule.ID:
-                    this.rules.push(new FlexibleRule(<IFlexibleRuleConfig>rule));
-                    break;
-
-                default:
-                    throw new Error('Can not found observer or rule type - ' + rule.type)
-            }
-
-        }
-        return true;
     }
 
 // ----------------------------
@@ -219,7 +170,6 @@ export class WAFMiddleware {
 }
 
 export interface IWAFMiddlewareConfig {
-
     detectClientIp?: {
         headers?: string[];
     }

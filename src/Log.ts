@@ -4,7 +4,7 @@ import {Logger} from "@elementary-lab/logger/src/Logger";
 import {ConsoleTarget} from "@elementary-lab/logger/src/Targets/ConsoleTarget";
 import {CategoryExtension} from "@elementary-lab/logger/src/Extensions/CategoryExtension";
 import {AbstractTarget} from "@elementary-lab/logger/src/Targets/AbstractTarget";
-import {env, envBoolean, envNumber} from "@waf/Utils";
+import {env, envBoolean, envNumber} from "@waf/Utils/Env";
 
 
 export class Log {
@@ -40,8 +40,8 @@ export class Log {
                     levels: [
                         LogLevel.EMERGENCY,
                         LogLevel.ERROR,
-                        LogLevel.NOTICE,
                         LogLevel.WARNING,
+                        LogLevel.NOTICE,
                         LogLevel.INFO,
                         ...envBoolean('WAF_LOG_DEBUG', false) ? [LogLevel.DEBUG] : [],
                         ...envBoolean('WAF_LOG_TRACE', false) ? [LogLevel.TRACE] : [],

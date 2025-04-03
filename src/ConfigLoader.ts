@@ -2,7 +2,7 @@ import fs from 'fs';
 import yaml from 'js-yaml';
 import process from "process";
 import {Log} from "@waf/Log";
-import {env} from "@waf/Utils";
+import {env} from "@waf/Utils/Env";
 
 export class ConfigLoader {
     public async load<T>(): Promise<T> {

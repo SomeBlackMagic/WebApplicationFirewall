@@ -1,6 +1,6 @@
 import express = require('express');
-import {ConditionsRule, IConditionsRule} from "@waf/Rules/ConditionsRule";
 import {Request} from "express-serve-static-core";
+import {ConditionsRule, IConditionsRule} from "@waf/Jail/Rules/ConditionsRule";
 
 describe('ConditionsRule', () => {
 

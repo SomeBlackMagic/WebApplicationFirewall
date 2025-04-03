@@ -1,37 +1,10 @@
-
-import * as ipLib from 'ip';
+import * as ipLib from "ip";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {Log} from "@waf/Log";
 
-export class Whitelist {
-    static #instance: Whitelist;
+export abstract class StaticFilter {
 
-    public static build(...args: [any, ...any[]]) {
-        Whitelist.instance = new Whitelist(...args);
-    }
-
-    public static get instance(): Whitelist {
-        return Whitelist.#instance;
-    }
-
-    public static set instance(obj: Whitelist) {
-        if(!Whitelist.#instance) {
-            Whitelist.#instance = obj;
-            return;
-        }
-
-        throw new Error('Whitelist is already instantiated.');
-    }
-
-
-    public constructor(
-        private readonly config: IWhitelistConfig,
-        private readonly log?: LoggerInterface,
-    ) {
-        if(!log) {
-            this.log = Log.instance.withCategory('app.Whitelist');
-        }
-    }
+    protected config: IStaticFilterConfig;
+    protected log: LoggerInterface;
 
     public check(clientIp: string, clientGeoCountry: string, clientGeoCity: string): boolean {
         if (this.config?.ips && this.config.ips.length > 0) {
@@ -87,12 +60,10 @@ export class Whitelist {
             return city === cityItem
         });
     }
-
-
-
 }
 
-export interface IWhitelistConfig {
+
+export interface IStaticFilterConfig {
     ips?: string[],
     ipSubnet?: string[],
     geoCountry?: string[],
