@@ -50,7 +50,7 @@ interface AppConfig {
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>()
 
-    await GeoIP2.instance.init()
+    await GeoIP2.build().init()
 
     const app = express();
     app.disable('x-powered-by');
@@ -58,12 +58,12 @@ interface AppConfig {
     const api = new Api(appConfig.api, app);
     api.bootstrap();
 
-    Metrics.build(appConfig.metrics, app)
-    Metrics.instance.bootstrap();
+    Metrics.build(appConfig.metrics, app).bootstrap();
 
     JailManager.build(appConfig.jailManager);
-    Whitelist.build(appConfig.whitelist);
-    Blacklist.build(appConfig.blacklist);
+
+    Whitelist.buildInstance(appConfig.whitelist)
+    Blacklist.buildInstance(appConfig.blacklist)
 
     const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
 
@@ -111,7 +111,7 @@ interface AppConfig {
 function exitHandler() {
     Log.instance.info('On stop');
     (async () => {
-        JailManager.instance?.onStop();
+        JailManager.get().onStop();
         // @ts-ignore
         await process.flushLogs();
         process.exit(0);
@@ -121,7 +121,7 @@ function exitHandler() {
 function uncaughtExceptionHandler(error: Error, origin: any) {
     Log.instance.error('Uncaught Exception', error);
     (async () => {
-        JailManager.instance?.onStop();
+        JailManager.get().onStop();
         // @ts-ignore
         await process.flushLogs();
         process.exit(99);
@@ -131,7 +131,7 @@ function uncaughtExceptionHandler(error: Error, origin: any) {
 function uncaughtRejectionHandler(reason: unknown, promise: Promise<unknown>) {
     Log.instance.error('Uncaught Rejection', reason);
     (async () => {
-        JailManager.instance?.onStop();
+        JailManager.get().onStop();
         // @ts-ignore
         await process.flushLogs();
         process.exit(99);

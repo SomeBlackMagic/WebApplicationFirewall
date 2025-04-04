@@ -10,7 +10,7 @@ describe('StaticFilter', () => {
         geoCity: ['New York', 'Dallas'],
     };
 
-    const StaticFilterTestClass = new class extends StaticFilter {
+    const StaticFilterTestClass = new class extends StaticFilter<any, []> {
         public constructor(
             config: IStaticFilterConfig
         ) {

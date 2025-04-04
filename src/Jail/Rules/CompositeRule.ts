@@ -31,7 +31,7 @@ export class CompositeRule extends ConditionsRule {
             return Promise.resolve(false);
         }
 
-        const keyParts = this.rule.keys.map(key => {
+        const keyParts = this.rule.uniqueClientKey.map(key => {
             switch (key) {
                 case 'ip':
                     return clientIp;
@@ -102,7 +102,7 @@ export class CompositeRule extends ConditionsRule {
 }
 
 export interface ICompositeRuleConfig extends IAbstractRuleConfig {
-    keys: string[]
+    uniqueClientKey: string[]
     conditions: IConditionsRule[]
     limit: number
     period: number

@@ -1,7 +1,8 @@
 import * as ipLib from "ip";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
+import {Singleton} from "@waf/Utils/Singleton";
 
-export abstract class StaticFilter {
+export abstract class StaticFilter<T, U extends any[]> extends Singleton<T, U> {
 
     protected config: IStaticFilterConfig;
     protected log: LoggerInterface;

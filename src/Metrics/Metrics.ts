@@ -8,29 +8,9 @@ import {env} from "@waf/Utils/Env";
 import crypto from 'crypto';
 import express_prom_bundle from "express-prom-bundle";
 import {Registry} from "prom-client";
+import {Singleton} from "@waf/Utils/Singleton";
 
-export class Metrics {
-
-    static #instance: Metrics;
-
-    public static build(...args: [any, ...any[]]) {
-        // @ts-ignore
-        Metrics.instance = new Metrics(...args);
-    }
-
-    public static get instance(): Metrics {
-        return Metrics.#instance;
-    }
-
-    public static set instance(obj: Metrics) {
-        if(!Metrics.#instance) {
-            Metrics.#instance = obj;
-            return;
-        }
-
-        throw new Error('Metrics is already instantiated.');
-    }
-
+export class Metrics extends Singleton<Metrics, []>{
 
     public constructor(
         private readonly config: IMetricsConfig,
@@ -38,6 +18,7 @@ export class Metrics {
         private registerMetrics?: Registry,
         private readonly logger?: LoggerInterface
     ) {
+        super();
         if(!logger) {
             this.logger = Log.instance.withCategory('metrics');
         }
