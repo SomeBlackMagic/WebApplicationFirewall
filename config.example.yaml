@@ -90,4 +90,7 @@ blacklist:
   geoCountry: ['USA', 'CA'] # OPTIONAL
   geoCity: ['Lviv'] # OPTIONAL
 
-
+sentry:
+  enabled: false
+  dsn: ''
+  debug: true
