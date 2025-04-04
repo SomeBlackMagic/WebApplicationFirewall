@@ -17,7 +17,7 @@ describe('ConfigLoader', () => {
 
     it('should load config from file', async () => {
         process.env.WAF_CONFIG_TYPE = 'file';
-        process.env.WAF_CONFIG_FILE = 'config.yaml';
+        process.env.WAF_CONFIG_SOURCE = 'config.yaml';
         const expected = {key: 'value'};
         mockedFs.readFileSync.mockReturnValue('key: value');
         mockedYaml.load.mockReturnValue(expected);
@@ -33,7 +33,7 @@ describe('ConfigLoader', () => {
             Promise.resolve({text: () => Promise.resolve('key: value'), status: 200} as Response)
         );
         process.env.WAF_CONFIG_TYPE = 'link';
-        process.env.WAF_CONFIG_FILE = 'http://localhost/config.yaml';
+        process.env.WAF_CONFIG_SOURCE = 'http://localhost/config.yaml';
         const expected = {key: 'value'};
         mockedYaml.load.mockReturnValue(expected);
         const config = new ConfigLoader();

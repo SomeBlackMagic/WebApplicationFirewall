@@ -1,27 +1,16 @@
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {Log} from "@waf/Log";
 import {IStaticFilterConfig, StaticFilter} from "@waf/Static/StaticFilter";
+import {IWhitelistConfig} from "@waf/Static/Whitelist";
 
-export class Blacklist extends StaticFilter {
-    static #instance: Blacklist;
+export class Blacklist extends StaticFilter<Blacklist, [IBlacklistConfig, LoggerInterface]> {
 
-    public static build(...args: [any, ...any[]]) {
-        Blacklist.instance = new Blacklist(...args);
+    static buildInstance(
+        config: IWhitelistConfig,
+        log?: LoggerInterface,
+    ): Blacklist {
+        return super.build.call(this, config, log);
     }
-
-    public static get instance(): Blacklist {
-        return Blacklist.#instance;
-    }
-
-    public static set instance(obj: Blacklist) {
-        if(!Blacklist.#instance) {
-            Blacklist.#instance = obj;
-            return;
-        }
-
-        throw new Error('Blacklist is already instantiated.');
-    }
-
 
     public constructor(
         config: IBlacklistConfig,
@@ -30,7 +19,7 @@ export class Blacklist extends StaticFilter {
         super();
         this.config = config;
         if(!log) {
-            this.log = Log.instance.withCategory('app.Blacklist');
+            this.log = Log.instance.withCategory('app.Static.Blacklist');
         }
     }
 

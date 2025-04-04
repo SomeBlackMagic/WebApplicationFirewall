@@ -1,4 +1,4 @@
-import {NextFunction, Request, Response} from "express-serve-static-core";
+import {Request, Response} from "express-serve-static-core";
 import * as core from "express-serve-static-core";
 import {BanInfo, JailManager} from "@waf/Jail/JailManager";
 import {HttpBasicAuth, IHttpBasicAuthConfig} from "@waf/Utils/HttpBasicAuth";
@@ -12,10 +12,8 @@ export class Api {
         private readonly webApp: core.Express,
         private readonly jailManager?: JailManager
     ) {
-        // Bind the middleware to make it testable
-        // this.authenticationMiddleware = this.authentication.bind(this);
         if(!jailManager) {
-            this.jailManager = JailManager.instance;
+            this.jailManager = JailManager.get();
         }
 
         this.authenticator = new HttpBasicAuth(this.moduleConfig.auth);

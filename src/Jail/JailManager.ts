@@ -13,10 +13,9 @@ import {IStaticRuleConfig, StaticRule} from "@waf/Jail/Rules/StaticRule";
 import {FlexibleRule, IFlexibleRuleConfig} from "@waf/Jail/Rules/FlexibleRule";
 import {AbstractRule, IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
 import * as promClient from "prom-client";
+import {Singleton} from "@waf/Utils/Singleton";
 
-export class JailManager {
-    static #instance: JailManager;
-
+export class JailManager extends Singleton<JailManager, []>{
     private readonly storeInterval: NodeJS.Timeout = null;
 
     private blockedIPs: Record<string, BanInfo> = {}
@@ -31,6 +30,7 @@ export class JailManager {
         private readonly metricsInstance?: Metrics,
         private readonly logger?: LoggerInterface,
     ) {
+        super();
         if (!logger) {
             this.logger = Log.instance.withCategory('app.jail.jailManager')
         }
@@ -47,7 +47,7 @@ export class JailManager {
         }
 
         if(!metricsInstance) {
-            this.metricsInstance = Metrics.instance;
+            this.metricsInstance = Metrics.get();
         }
 
         this.storage.load().then((rawJailList) => {
@@ -77,23 +77,6 @@ export class JailManager {
                 return new JailStorageMemory(driverConfig);
         }
 
-    }
-
-    public static build(...args: [any, ...any[]]) {
-        JailManager.instance = new JailManager(...args);
-    }
-
-    public static get instance(): JailManager {
-        return JailManager.#instance;
-    }
-
-    public static set instance(obj: JailManager) {
-        if(!JailManager.#instance) {
-            JailManager.#instance = obj;
-            return;
-        }
-
-        throw new Error('JailManager is already instantiated.');
     }
 
     public bootstrapMetrics() {

@@ -27,7 +27,7 @@ export class StaticRule extends AbstractRule {
         })
 
         if(this.rule.updateInterval != null && this.rule.updateInterval > 0) {
-            this.updateInterval = setInterval(this.fetchData.bind(this), this.rule.updateInterval);
+            this.updateInterval = setInterval(this.fetchData.bind(this), this.rule.updateInterval * 1000);
         }
     }
 

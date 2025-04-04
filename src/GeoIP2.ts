@@ -3,20 +3,12 @@ import process from "process";
 import ReaderModel from "@maxmind/geoip2-node/dist/src/readerModel";
 import fs from "fs";
 import {Log} from "@waf/Log";
+import {Singleton} from "@waf/Utils/Singleton";
 
-export class GeoIP2 {
-    static #instance: GeoIP2;
+export class GeoIP2 extends Singleton<GeoIP2, []> {
 
     private readerCity: ReaderModel;
     private readerCountry: ReaderModel;
-
-    public static get instance(): GeoIP2 {
-        if (!GeoIP2.#instance) {
-            GeoIP2.#instance = new GeoIP2();
-        }
-
-        return GeoIP2.#instance;
-    }
 
 
     public async init(): Promise<void> {
