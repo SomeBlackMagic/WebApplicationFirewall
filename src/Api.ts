@@ -10,16 +10,17 @@ export class Api {
     public constructor(
         private readonly moduleConfig: IApiConfig,
         private readonly webApp: core.Express,
-        private readonly jailManager?: JailManager
+        private jailManager?: JailManager
     ) {
-        if(!jailManager) {
-            this.jailManager = JailManager.get();
-        }
 
         this.authenticator = new HttpBasicAuth(this.moduleConfig.auth);
     }
 
     public bootstrap() {
+        if(!this.jailManager) {
+            this.jailManager = JailManager.get();
+        }
+
         this.webApp.get('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.getBannedUsers.bind(this));
         this.webApp.delete('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.deleteBannedUsers.bind(this));
     }

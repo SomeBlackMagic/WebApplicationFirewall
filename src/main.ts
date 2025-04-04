@@ -14,6 +14,7 @@ import sourceMapSupport from 'source-map-support'
 import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
 import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
+import {ISentryConfig, Sentry} from "@waf/Sentry";
 sourceMapSupport.install()
 
 
@@ -43,20 +44,20 @@ interface AppConfig {
     whitelist: IWhitelistConfig,
     blacklist: IBlacklistConfig,
     api: IApiConfig,
-    metrics: IMetricsConfig
+    metrics: IMetricsConfig,
+    sentry: ISentryConfig
 
 }
 
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>()
-
-    await GeoIP2.build().init()
+    Sentry.build(appConfig.sentry, env('APP_VERSION', 'dev-dirty'));
+    await GeoIP2.build().init();
 
     const app = express();
     app.disable('x-powered-by');
 
     const api = new Api(appConfig.api, app);
-    api.bootstrap();
 
     Metrics.build(appConfig.metrics, app).bootstrap();
 
@@ -64,6 +65,8 @@ interface AppConfig {
 
     Whitelist.buildInstance(appConfig.whitelist)
     Blacklist.buildInstance(appConfig.blacklist)
+
+    api.bootstrap();
 
     const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
 
@@ -94,12 +97,10 @@ interface AppConfig {
         }));
     }
 
-
     app.use('/', createProxyMiddleware({
         target: appConfig.proxy.host,
         changeOrigin: false
     }));
-
 
     const port = 3000;
     app.listen(port, () => {
@@ -119,9 +120,17 @@ function exitHandler() {
 }
 
 function uncaughtExceptionHandler(error: Error, origin: any) {
+
+
     Log.instance.error('Uncaught Exception', error);
     (async () => {
-        JailManager.get().onStop();
+        try {
+            Sentry.get().captureException(error);
+            await Sentry.get().getClient().flush();
+            JailManager.get().onStop();
+        } catch (e: Error | any) {
+            console.error(e);
+        }
         // @ts-ignore
         await process.flushLogs();
         process.exit(99);
@@ -131,7 +140,14 @@ function uncaughtExceptionHandler(error: Error, origin: any) {
 function uncaughtRejectionHandler(reason: unknown, promise: Promise<unknown>) {
     Log.instance.error('Uncaught Rejection', reason);
     (async () => {
-        JailManager.get().onStop();
+        try {
+            Sentry.get().captureException(reason);
+            await Sentry.get().getClient().flush();
+            JailManager.get().onStop();
+        } catch (e: Error | any) {
+            console.error(e);
+        }
+
         // @ts-ignore
         await process.flushLogs();
         process.exit(99);
