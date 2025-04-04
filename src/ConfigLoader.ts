@@ -18,14 +18,14 @@ export class ConfigLoader {
     }
 
     async loadFromFile<T>(): Promise<T> {
-        const configFilePath = env('WAF_CONFIG_FILE', process.cwd() + '/config.yaml');
+        const configFilePath = env('WAF_CONFIG_SOURCE', process.cwd() + '/config.yaml');
         Log.instance.info('Load configuration from file: ' + configFilePath);
         return this.loadYamlConfig<T>(fs.readFileSync(configFilePath, 'utf8'), configFilePath);
     }
 
 
     private async loadFromLink<T>(): Promise<T> {
-        const link = env('WAF_CONFIG_FILE');
+        const link = env('WAF_CONFIG_SOURCE');
         Log.instance.info('Load configuration from link: ' + link);
         const response = await fetch(link)
             .then((result) => {

@@ -12,7 +12,7 @@ describe('CompositeRule test', () => {
             duration: 10,
             limit: 2,
             period: 30,
-            keys: ["ip", "user-agent", "url", 'geo-country', 'geo-city', 'not-found-key', 'hostname'],
+            uniqueClientKey: ["ip", "user-agent", "url", 'geo-country', 'geo-city', 'not-found-key', 'hostname'],
             conditions: []
         });
     });

@@ -82,7 +82,7 @@ Env variable for configure the application:
 | Variable        | Desctiontion                                | Default value |
 | --------------- |---------------------------------------------| ------------- |
 | WAF_CONFIG_TYPE | How to load configuration. 'file' or 'link' | file          |
-| WAF_CONFIG_FILE | Link on file system or http href            |               |
+| WAF_CONFIG_SOURCE | Link on file system or http href            |               |
 
 ## 🚀 Running
 
@@ -108,7 +108,7 @@ node ./node_modules/.bin/ts-node src/main.ts
 
 | Variable                | Description                          |
 |-------------------------|--------------------------------------|
-| `WAF_CONFIG_FILE`       | Path to config YAML or URL           |
+| `WAF_CONFIG_SOURCE`       | Path to config YAML or URL           |
 | `WAF_CONFIG_TYPE`       | `file` or `link`                     |
 | `WAF_LOG_DEBUG`         | Enable debug logs                    |
 | `WAF_AUDIT`             | Enable request auditing              |

@@ -25,6 +25,18 @@ describe('WAFMiddleware', () => {
         metricRegister = new Registry();
         jest.useFakeTimers();
         jest.spyOn(global, 'setInterval');
+
+        JailManager.build({enabled: false, filterRules: []});
+        Whitelist.buildInstance({})
+        Blacklist.buildInstance({})
+        GeoIP2.build();
+    });
+
+    afterAll(() => {
+        JailManager.reset()
+        Whitelist.reset();
+        Blacklist.reset();
+        GeoIP2.reset();
     })
 
     describe('use', () => {
@@ -155,7 +167,8 @@ describe('WAFMiddleware', () => {
         let middleware;
         beforeEach(() => {
             middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}});
-        })
+        });
+
 
         it('should return the IP from headers specified in config', () => {
             const req = {
@@ -204,6 +217,7 @@ describe('WAFMiddleware', () => {
     });
     describe('detectClientCountry', () => {
         beforeEach(() => {
+
             defaultMetrics = new Metrics({
                 enabled: true,
                 auth: {enabled: false}

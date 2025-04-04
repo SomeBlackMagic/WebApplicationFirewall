@@ -30,19 +30,19 @@ export class WAFMiddleware {
             this.config.detectClientIp.headers = [];
         }
         if(!metricsInstance) {
-            this.metricsInstance = Metrics.instance;
+            this.metricsInstance = Metrics.get();
         }
 
         if (!jailManager) {
-            this.jailManager = JailManager.instance;
+            this.jailManager = JailManager.get();
         }
 
         if (!whitelist) {
-            this.whitelist = Whitelist.instance;
+            this.whitelist = Whitelist.get();
         }
 
         if (!blacklist) {
-            this.blacklist = Blacklist.instance;
+            this.blacklist = Blacklist.get();
         }
 
         if (!log) {
@@ -50,7 +50,7 @@ export class WAFMiddleware {
         }
 
         if (!geoIP2) {
-            this.geoIP2 = GeoIP2.instance;
+            this.geoIP2 = GeoIP2.get();
         }
 
         if(!this.config?.detectClientCountry) {
