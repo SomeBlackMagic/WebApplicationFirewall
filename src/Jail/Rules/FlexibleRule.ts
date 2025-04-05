@@ -18,7 +18,7 @@ export class FlexibleRule extends ConditionsRule {
     ) {
         super();
         if (!this.log) {
-            this.log = Log.instance.withCategory('rules.flexibleRule')
+            this.log = Log.instance.withCategory('app.Jail.Rules.FlexibleRule')
         }
     }
 

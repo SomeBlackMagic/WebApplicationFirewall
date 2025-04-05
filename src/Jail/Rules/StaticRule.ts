@@ -19,7 +19,7 @@ export class StaticRule extends AbstractRule {
         super();
 
         if(!this.log) {
-            this.log = Log.instance.withCategory('rules.staticRule')
+            this.log = Log.instance.withCategory('app.Jail.Rules.StaticRule')
         }
 
         this.fetchData().then(() => {

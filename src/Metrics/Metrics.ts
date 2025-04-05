@@ -20,7 +20,7 @@ export class Metrics extends Singleton<Metrics, []>{
     ) {
         super();
         if(!logger) {
-            this.logger = Log.instance.withCategory('metrics');
+            this.logger = Log.instance.withCategory('app.Metrics');
         }
     }
 

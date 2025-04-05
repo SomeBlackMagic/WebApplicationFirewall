@@ -31,20 +31,18 @@ export class JailManager extends Singleton<JailManager, []>{
         private readonly logger?: LoggerInterface,
     ) {
         super();
+        this.config = Object.assign({
+            storage: {
+                driver: 'memory',
+                driverConfig: {}
+            }
+        }, config);
+
         if (!logger) {
-            this.logger = Log.instance.withCategory('app.jail.jailManager')
+            this.logger = Log.instance.withCategory('app.Jail.JailManager')
         }
-        if(this.config?.storage?.driver) {
-            assert(typeof this.config.storage.driverConfig !== 'undefined', "driverConfig must be set in the configuration");
-            this.storage = this.createStorageFromConfig(
-                this.config.storage.driver,
-                this.config.storage.driverConfig
-            )
-        }
-        if (!this.storage) {
-            this.logger.warn('Use InMemory storage by default value');
-            this.storage = new JailStorageMemory();
-        }
+
+        this.storage = this.createStorageFromConfig(this.config.storage.driver, this.config.storage.driverConfig);
 
         if(!metricsInstance) {
             this.metricsInstance = Metrics.get();
@@ -53,7 +51,7 @@ export class JailManager extends Singleton<JailManager, []>{
         this.storage.load().then((rawJailList) => {
             this.blockedIPs = Object.fromEntries(rawJailList.map(item => [item.ip, item]))
             this.logger.info('Loading ban list on boot', Object.keys(this.blockedIPs).length);
-        })
+        });
         this.storeInterval = setInterval(() => {
             this.syncDataWithStorage();
         }, this.config?.syncInterval || 5000);
@@ -74,6 +72,7 @@ export class JailManager extends Singleton<JailManager, []>{
             case 'file':
                 return new JailStorageFile(driverConfig);
             case 'memory':
+                this.logger.warn('Use InMemory storage');
                 return new JailStorageMemory(driverConfig);
         }
 

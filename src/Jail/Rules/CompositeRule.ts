@@ -17,7 +17,7 @@ export class CompositeRule extends ConditionsRule {
     ) {
         super();
         if (!log) {
-            this.log = Log.instance.withCategory('app.rules.compositeRule');
+            this.log = Log.instance.withCategory('app.Jail.Rules.CompositeRule');
         }
     }
 
