@@ -19,8 +19,6 @@ export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
                 serverName: os.hostname(),
                 release: appVersion,
                 debug: this.config.debug || false,
-
-
                 tracesSampleRate: 1.0,
             });
         }

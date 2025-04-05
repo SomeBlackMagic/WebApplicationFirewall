@@ -3,7 +3,6 @@ import {Log} from "@waf/Log";
 import {IStaticFilterConfig, StaticFilter} from "@waf/Static/StaticFilter";
 
 export class Whitelist extends StaticFilter<Whitelist, [IWhitelistConfig, LoggerInterface]> {
-    // static #instance: Whitelist;
 
     static buildInstance(
         config: IWhitelistConfig,
@@ -11,24 +10,6 @@ export class Whitelist extends StaticFilter<Whitelist, [IWhitelistConfig, Logger
     ): Whitelist {
         return super.build.call(this, config, log);
     }
-
-    // public static build(...args: [any, ...any[]]) {
-    //     Whitelist.instance = new Whitelist(...args);
-    // }
-
-    // public static get instance(): Whitelist {
-    //     return Whitelist.#instance;
-    // }
-    //
-    // public static set instance(obj: Whitelist) {
-    //     if(!Whitelist.#instance) {
-    //         Whitelist.#instance = obj;
-    //         return;
-    //     }
-    //
-    //     throw new Error('Whitelist is already instantiated.');
-    // }
-
 
     public constructor(
         config: IWhitelistConfig,
