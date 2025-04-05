@@ -47,3 +47,8 @@ export interface IConditionsRule {
     method: "regexp" | "equals"
     values: string[]
 }
+
+export interface ICountersItem {
+    time: number;
+    requestId: string;
+}
