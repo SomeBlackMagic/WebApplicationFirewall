@@ -19,7 +19,7 @@ export class JailStorageFile implements JailStorageInterface {
         }
 
         if (!logger) {
-            this.logger = Log.instance.withCategory('app.jail.jailStorageFile')
+            this.logger = Log.instance.withCategory('app.Jail.JailStorageFile')
         }
     }
 

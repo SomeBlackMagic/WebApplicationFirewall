@@ -15,6 +15,9 @@ metrics:
     password: 'admin'
 
 wafMiddleware:
+  #Policy Audit Mode configures waf to allow all traffic while logging all connections
+  #vthat would otherwise be dropped by policies. Default value audit
+  mode: normal # or audit
   detectClientIp:
     headers: ['fastly-client-ip', 'cf-connecting-ip', 'x-original-forwarded-for', ]
 
@@ -75,7 +78,6 @@ jailManager:
       limit: 5              # If during the period the number of requests exceeds the limit, ban
       duration: 180         # Blocking by 180 seconds when the limit exceeds (measurement seconds)
       escalationRate: 1.1   # OPTIONAL
-
 
 
 whitelist:

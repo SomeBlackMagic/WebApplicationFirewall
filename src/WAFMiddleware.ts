@@ -23,12 +23,19 @@ export class WAFMiddleware {
         private readonly geoIP2?: GeoIP2,
         private readonly log?: LoggerInterface,
     ) {
-        if (!this.config?.detectClientIp?.headers) {
-            if (!this.config?.detectClientIp) {
-                this.config.detectClientIp = {};
+        this.config = Object.assign({
+            mode: 'audit',
+            detectClientIp: {
+                headers: []
+            },
+            detectClientCountry: {
+                method: 'geoip'
+            },
+            detectClientCity: {
+                method: 'geoip'
             }
-            this.config.detectClientIp.headers = [];
-        }
+        }, config);
+
         if(!metricsInstance) {
             this.metricsInstance = Metrics.get();
         }
@@ -53,13 +60,6 @@ export class WAFMiddleware {
             this.geoIP2 = GeoIP2.get();
         }
 
-        if(!this.config?.detectClientCountry) {
-            this.config.detectClientCountry = {method: 'geoip'}
-        }
-
-        if(!this.config?.detectClientCity) {
-            this.config.detectClientCity = {method: 'geoip'}
-        }
         if(this.metricsInstance.isEnabled()) {
             this.bootstrapMetrics();
         }
@@ -102,19 +102,29 @@ export class WAFMiddleware {
             if(this.blacklist.check(clientIp, country, city)) {
                 this.metrics['blacklist']?.inc({country, city});
                 this.log.trace('Request from blacklist  IP rejected', [clientIp, country, city]);
-                res.sendStatus(429);
+                this.createRejectResponse(429, '', res, next);
                 return;
             }
 
             if(await this.jailManager.check(clientIp, country, city, req, res)) {
                 this.metrics['jail_reject']?.inc({country, city});
                 this.log.trace('Request from jail IP rejected', [clientIp, country, city]);
-                res.sendStatus(429);
+                this.createRejectResponse(429, '', res, next);
                 return;
             }
 
             next();
         };
+    }
+
+    private createRejectResponse(code: number, body: string, res: Response, next: NextFunction): Response|void {
+        if(this.config.mode == 'audit') {
+            this.log.warn('The request was passed on to proxy server in audit mode');
+            next();
+            return;
+        }
+        res.status(code);
+        res.send(body);
     }
 
 // ----------------------------
@@ -170,6 +180,7 @@ export class WAFMiddleware {
 }
 
 export interface IWAFMiddlewareConfig {
+    mode?: "normal" | "audit",
     detectClientIp?: {
         headers?: string[];
     }
@@ -182,7 +193,6 @@ export interface IWAFMiddlewareConfig {
         method: 'header' | 'geoip'
         header?: string;
     }
-
 
 }
 

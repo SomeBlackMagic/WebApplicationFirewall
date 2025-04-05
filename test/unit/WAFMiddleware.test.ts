@@ -84,7 +84,7 @@ describe('WAFMiddleware', () => {
 
             const mockWhitelistCheck = jest.spyOn(defaultBlacklist, 'check').mockReturnValue(true);
 
-            const middleware = new WAFMiddleware({}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+            const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
 
             const next = jest.fn();
             const req = <Request>{
@@ -118,7 +118,7 @@ describe('WAFMiddleware', () => {
 
             const mockJailManagerCheck = jest.spyOn(defaultJailManager, 'check').mockResolvedValue(true);
 
-            const middleware = new WAFMiddleware({}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+            const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
 
             const next = jest.fn();
             const req = <Request>{
@@ -159,6 +159,23 @@ describe('WAFMiddleware', () => {
 
             expect(next).toHaveBeenCalledTimes(1);
         });
+
+        it('should call next() when the client IP is in blacklist and audit mode is active', async () => {
+
+            const mockWhitelistCheck = jest.spyOn(defaultBlacklist, 'check').mockReturnValue(true);
+
+            const middleware = new WAFMiddleware({mode: 'audit'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+
+            const next = jest.fn();
+            const req = createRequest();
+            const res = createResponse();
+
+            await middleware.use()(req, res, next);
+
+            expect(mockWhitelistCheck).toHaveBeenCalledTimes(1);
+            expect(next).toHaveBeenCalledTimes(1);
+        });
+
 
 
     });
