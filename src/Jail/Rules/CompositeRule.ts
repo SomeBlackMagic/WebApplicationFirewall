@@ -71,13 +71,15 @@ export class CompositeRule extends ConditionsRule {
         // If the number of queries exceeds the limit, we block IP
         if (this.compositeCounters[compositeKey].length >= (this.rule.limit || 100)) {
             this.log.info(`The composite rule worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`);
-            return Promise.resolve({
+            const requestIds = this.compositeCounters[compositeKey].map(item => item.requestId);
+            this.compositeCounters[compositeKey] = []; // reset counter to 0;
+            return {
                 ruleId: CompositeRule.ID+ ':' + this.rule.name,
                 ip: clientIp,
                 duration: this.rule.duration,
                 escalationRate: this.rule?.escalationRate || 1.0,
-                requestIds: this.compositeCounters[compositeKey].map(item => item.requestId),
-            })
+                requestIds: requestIds
+            };
         }
 
         return Promise.resolve(false);

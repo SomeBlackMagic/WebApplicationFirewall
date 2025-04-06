@@ -50,12 +50,14 @@ export class FlexibleRule extends ConditionsRule {
         // If the number of queries exceeds the limit, we block IP
         if (this.suspicions[clientIp].length >= (this.rule.limit || 100)) {
             this.log.info(`Too many suspicious request from ${clientIp}`, []);
+            const requestIds = this.suspicions[clientIp].map(item => item.requestId);
+            this.suspicions[clientIp] = []; // reset counter to 0;
             return {
                 ruleId: FlexibleRule.ID+ ':' + this.rule.name,
                 ip: clientIp,
                 duration: this.rule.duration,
                 escalationRate: this.rule?.escalationRate || 1.0,
-                requestIds: this.suspicions[clientIp].map(item => item.requestId),
+                requestIds: requestIds,
             }
         }
 
