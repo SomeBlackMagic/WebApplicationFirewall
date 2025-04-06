@@ -111,7 +111,7 @@ export class JailManager extends Singleton<JailManager, []>{
         if (blockedUser !== false) {
             if (blockedUser.unbanTime > Date.now()) {
                 this.metrics['blocked']?.inc({country, city});
-                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.metadata.country, blockedUser.metadata.city]);
+                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.metadata?.country, blockedUser.metadata?.city]);
                 return true;
             }
         }

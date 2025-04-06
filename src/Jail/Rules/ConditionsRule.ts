@@ -28,15 +28,18 @@ export abstract class ConditionsRule extends AbstractRule {
                     break
             }
 
-            switch (item.method) {
-                case 'equals':
-                    return item.values.includes(testedValue)
-                case 'regexp':
-                    return item.values.some(rule => {
-                        const ruleRegexp = new RegExp(this.createRegexFromString(rule))
-                        return ruleRegexp.test(testedValue);
-                    });
-            }
+            return item.check.some(ruleItem => {
+                switch (ruleItem.method) {
+                    case 'equals':
+                        return ruleItem.values.includes(testedValue)
+                    case 'regexp':
+                        return ruleItem.values.some(rule => {
+                            const ruleRegexp = new RegExp(this.createRegexFromString(rule))
+                            return ruleRegexp.test(testedValue);
+                        });
+                }
+            })
+
         })
     }
 
@@ -44,8 +47,10 @@ export abstract class ConditionsRule extends AbstractRule {
 
 export interface IConditionsRule {
     field: string
-    method: "regexp" | "equals"
-    values: string[]
+    check: {
+        method: "regexp" | "equals"
+        values: string[]
+    }[]
 }
 
 export interface ICountersItem {
