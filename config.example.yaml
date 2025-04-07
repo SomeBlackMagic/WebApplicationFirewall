@@ -43,11 +43,13 @@ jailManager:
         config:
           retries: 3
   filterRules:
-    - type: "static"
+    - name: "static-rule-1"
+      type: "static"
       linkUrl: "https://httpbin.org/status/200"
       updateInterval: 120 # (measurement seconds)
 
-    - type: "composite"
+    - name: "composite-rule-1"
+      type: "composite"
       uniqueClientKey: ["ip", "user-agent", "hostname", "url", "geo-country", "geo-city"]
       conditions:
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
@@ -64,7 +66,8 @@ jailManager:
       escalationRate: 1.3     # OPTIONAL
 
 
-    - type: "flexible"
+    - name: "flexible-rule-1"
+      type: "flexible"
       conditions:
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
           method: 'equals'

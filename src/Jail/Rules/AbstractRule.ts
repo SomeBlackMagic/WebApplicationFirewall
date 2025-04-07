@@ -1,8 +1,8 @@
-import { Request, Response} from "express-serve-static-core";
+import { Request} from "express-serve-static-core";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 
 export abstract class AbstractRule {
-     public abstract use(clientIp: string, country:string, city:string, req: Request, res: Response): Promise<boolean|IBannedIPItem>;
+     public abstract use(clientIp: string, country:string, city:string, req: Request, requestId: string): Promise<boolean|IBannedIPItem>;
 
     protected createRegexFromString(regexString: string) {
         //We check whether the line begins with the slash and whether it contains another slash at the end of the pattern
@@ -18,5 +18,6 @@ export abstract class AbstractRule {
 
 }
 export interface IAbstractRuleConfig {
-     type: string;
+    name: string;
+    type: string;
 }

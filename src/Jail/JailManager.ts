@@ -100,7 +100,7 @@ export class JailManager extends Singleton<JailManager, []>{
     }
 
 
-    public async check(clientIp: string, country: string, city: string, req: Request, res: Response): Promise<boolean> {
+    public async check(clientIp: string, country: string, city: string, req: Request, requestId: string, res: Response): Promise<boolean> {
         if(this.config.enabled === false) {
             this.logger.trace('JailManager skip by disabled');
             return false;
@@ -111,13 +111,13 @@ export class JailManager extends Singleton<JailManager, []>{
         if (blockedUser !== false) {
             if (blockedUser.unbanTime > Date.now()) {
                 this.metrics['blocked']?.inc({country, city});
-                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.geoCountry, blockedUser.geoCountry]);
+                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.metadata.country, blockedUser.metadata.city]);
                 return true;
             }
         }
 
         const promiseList = this.rules.map((ruleItem: AbstractRule) => {
-            return ruleItem.use(clientIp, country, city, req, res);
+            return ruleItem.use(clientIp, country, city, req, requestId);
         })
 
         const result: (false | true | IBannedIPItem)[] = await Promise.all(promiseList);
@@ -130,7 +130,12 @@ export class JailManager extends Singleton<JailManager, []>{
         const jailObjects: IBannedIPItem[] = result.filter(x => typeof x === 'object' );
         if(jailObjects.length !== 0) {
             await Promise.all(jailObjects.map(async (bannedIPItem) => {
-                await this.blockIp(bannedIPItem.ip, bannedIPItem.duration,bannedIPItem.escalationRate);
+                await this.blockIp(bannedIPItem.ip, bannedIPItem.duration,bannedIPItem.escalationRate, {
+                    ruleId: bannedIPItem.ruleId,
+                    country: country,
+                    city: city,
+                    requestIds: bannedIPItem.requestIds.join(',')
+                });
             }));
             this.metrics['reject_and_ban']?.inc({country, city});
             return true;
@@ -139,13 +144,12 @@ export class JailManager extends Singleton<JailManager, []>{
         return false;
     }
 
-    public async blockIp(ip: string, duration: number = 60, escalationRate: number = 1.0, country: string = 'unknown', city: string = 'unknown'): Promise<void> {
+    public async blockIp(ip: string, duration: number = 60, escalationRate: number = 1.0, metadata: IBanInfoMetaData): Promise<void> {
         if (!Object.prototype.hasOwnProperty.call(this.blockedIPs, ip)) {
             this.blockedIPs[ip] = {
                 ip: ip,
                 escalationCount: 0,
-                geoCountry: country,
-                geoCity: city,
+                metadata: metadata,
                 unbanTime: 0
             }
         } else {
@@ -252,6 +256,10 @@ export type BanInfo = {
     ip: string;
     unbanTime: number;
     escalationCount: number;
-    geoCountry: string;
-    geoCity: string;
+    metadata: IBanInfoMetaData
 };
+
+
+interface IBanInfoMetaData  {
+    [key: string]: string
+}

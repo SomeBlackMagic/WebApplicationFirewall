@@ -74,7 +74,6 @@ interface AppConfig {
         res.send("Hello from WAF server!");
     });
 
-
     // We use WAF Middleware to all routes
     app.use(waf.use());
 

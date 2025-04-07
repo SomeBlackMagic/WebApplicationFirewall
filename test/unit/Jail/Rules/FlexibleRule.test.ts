@@ -8,6 +8,7 @@ describe('FlexibleRule test', () => {
 
     beforeEach(() => {
         rule = new FlexibleRule({
+            name: 'flexible-one',
             type: 'flexible',
             duration: 10,
             limit: 2,
@@ -20,10 +21,10 @@ describe('FlexibleRule test', () => {
 
         const request = httpMocks.createRequest({});
         const mockedCheckConditions = jest.spyOn(rule as any, 'checkConditions').mockReturnValue(true);
-        let result = await rule.use('1.1.1.1', 'none', 'none', request);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request, 'request-id-1');
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', 'none', 'none', request);
-        expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible"});
+        result = await rule.use('1.1.1.1', 'none', 'none', request, 'request-id-2');
+        expect(result).toEqual({"duration": 10, "escalationRate": 1, "ip": "1.1.1.1", "ruleId": "flexible:flexible-one", "requestIds": ["request-id-1", "request-id-2"]});
         expect(mockedCheckConditions).toHaveBeenCalledTimes(2);
     });
 
@@ -31,9 +32,9 @@ describe('FlexibleRule test', () => {
 
         const request = httpMocks.createRequest({});
         const mockedCheckConditions = jest.spyOn(rule as any, 'checkConditions').mockReturnValue(false);
-        let result = await rule.use('1.1.1.1', 'none', 'none', request);
+        let result = await rule.use('1.1.1.1', 'none', 'none', request, 'request-id-1');
         expect(result).toEqual(false);
-        result = await rule.use('1.1.1.1', 'none', 'none', request);
+        result = await rule.use('1.1.1.1', 'none', 'none', request, 'request-id-1');
         expect(result).toEqual(false);
         expect(mockedCheckConditions).toHaveBeenCalledTimes(2);
     });

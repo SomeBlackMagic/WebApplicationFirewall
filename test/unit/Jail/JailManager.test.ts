@@ -48,6 +48,7 @@ describe('Jail Manager', () => {
                 'USA',
                 'Chicago',
                 createRequest(),
+                'request-id-1',
                 createResponse(),
             );
             expect(result).toBeFalsy()
@@ -58,14 +59,19 @@ describe('Jail Manager', () => {
                 ip: '192.168.1.1',
                 unbanTime: Date.now() + 10000,
                 escalationCount: 0,
-                geoCountry: '',
-                geoCity: ''
+                duration: 10000,
+                metadata: {
+                    country: 'USA',
+                    city: 'Chicago'
+                }
+
             });
             const result = await jailManager.check(
                 '192.168.1.1',
                 'USA',
                 'Chicago',
                 createRequest(),
+                'request-id-1',
                 createResponse(),
             );
             expect(result).toBeTruthy();
@@ -103,6 +109,7 @@ describe('Jail Manager', () => {
                 'USA',
                 'Chicago',
                 createRequest(),
+                'request-id-1',
                 createResponse(),
             );
             expect(result).toBeTruthy()
@@ -134,12 +141,13 @@ describe('Jail Manager', () => {
                 public use(): Promise<false | true | IBannedIPItem> {
                     return Promise.resolve(this.result);
                 }
-            }({ ip: "192.168.1.1", escalationRate: 1, duration: 10, ruleId: 'local'})
+            }({ ip: "192.168.1.1", escalationRate: 1, duration: 10, ruleId: 'local', requestIds: ['request-id-1'] })
             const result = await jailManager.check(
                 '192.168.1.1',
                 'USA',
                 'Chicago',
                 createRequest(),
+                'request-id-1',
                 createResponse(),
             );
             expect(result).toBeTruthy()
@@ -196,7 +204,7 @@ describe('Jail Manager', () => {
         });
 
         it('should throw when an invalid rule type is provided', () => {
-            const invalidRule: IAbstractRuleConfig = {type: 'Invalid'};
+            const invalidRule: IAbstractRuleConfig = {type: 'Invalid', name: 'foo'};
 
             const rulesConfig: IAbstractRuleConfig[] = [invalidRule];
 
@@ -233,14 +241,14 @@ describe('Jail Manager', () => {
              const country = 'USA';
              const city = 'San Francisco';
 
-             await jailManager.blockIp(ip, duration, escalationRate, country, city);
+             await jailManager.blockIp(ip, duration, escalationRate, {country, city});
 
              const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
 
              expect(blockedIp).not.toBeFalsy();
              expect(blockedIp.ip).toBe(ip);
-             expect(blockedIp.geoCountry).toBe(country);
-             expect(blockedIp.geoCity).toBe(city);
+             expect(blockedIp.metadata).toEqual({country, city});
+
          });
      });
  });

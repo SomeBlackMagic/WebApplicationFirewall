@@ -66,8 +66,10 @@ describe('JailStorageFile test', () => {
             ip: "192.168.1.1",
             unbanTime: Math.floor(Date.now() / 1000),
             escalationCount: 1,
-            geoCountry: "USA",
-            geoCity: "Seattle"
+            metadata: {
+                geoCountry: "USA",
+                geoCity: "Seattle"
+            }
         }];
 
         await obj.save(data, true);
