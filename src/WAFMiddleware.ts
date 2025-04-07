@@ -33,7 +33,11 @@ export class WAFMiddleware {
             },
             detectClientCity: {
                 method: 'geoip'
-            }
+            },
+            detectClientRequestId: {
+                header: 'x-request-id'
+            },
+
         }, config);
 
         if(!metricsInstance) {
@@ -92,6 +96,7 @@ export class WAFMiddleware {
             const clientIp = this.detectClientIp(req);
             const country = this.detectClientCountry(req, clientIp);
             const city = this.detectClientCity(req, clientIp);
+            const requestId = this.detectRequestId(req);
 
             if(this.whitelist.check(clientIp, country, city)) {
                 this.metrics['whitelist']?.inc({country, city});
@@ -106,7 +111,7 @@ export class WAFMiddleware {
                 return;
             }
 
-            if(await this.jailManager.check(clientIp, country, city, req, res)) {
+            if(await this.jailManager.check(clientIp, country, city, req, requestId, res)) {
                 this.metrics['jail_reject']?.inc({country, city});
                 this.log.trace('Request from jail IP rejected', [clientIp, country, city]);
                 this.createRejectResponse(429, '', res, next);
@@ -177,6 +182,9 @@ export class WAFMiddleware {
 
     }
 
+    public detectRequestId(req: Request) {
+        return req.header(this.config.detectClientRequestId.header) || 'not-detected';
+    }
 }
 
 export interface IWAFMiddlewareConfig {
@@ -193,6 +201,9 @@ export interface IWAFMiddlewareConfig {
         method: 'header' | 'geoip'
         header?: string;
     }
+    detectClientRequestId?: {
+        header?: string;
+    }
 
 }
 
@@ -201,5 +212,5 @@ export interface IBannedIPItem {
     ip: string;
     duration: number;
     escalationRate: number;
-    requestId?: number;
+    requestIds: string[];
 }
