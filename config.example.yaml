@@ -54,14 +54,22 @@ jailManager:
     - name: "composite-rule-1"
       type: "composite"
       uniqueClientKey: ["ip", "user-agent", "hostname", "url", "geo-country", "geo-city"]
-      conditions:
-        - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
-          method: 'equals'
-          values: [ "/admin.php" ]
+      conditions: # All conditions must be meat
+        - field: 'hostname' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+          check: # If any condition is met - check is considered successfully
+            - method: 'equals'
+              values: ["foo-bar.com", "foo-bar.net", "foo-bar.io"]
+
+            - method: 'regexp'
+              values: ["/bar-baz\.(com|net|io)/i"]
 
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
-          method: 'regexp'
-          values: ["/wp-(admin|include|content)/i"]
+          check: # If any condition is met - check is considered successfully
+            - method: 'equals'
+              values: [ "/admin.php", "phpinfo.php", ".env" ]
+
+            - method: 'regexp'
+              values: [ "/wp-(admin|include|content)/i" ]
 
       period: 60             # Period in seconds for which the number of requests is considered (measurement seconds)
       limit: 5               # If during the period the number of requests exceeds the limit, ban
@@ -71,14 +79,22 @@ jailManager:
 
     - name: "flexible-rule-1"
       type: "flexible"
-      conditions:
-        - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
-          method: 'equals'
-          values: [ "/admin.php" ]
+      conditions: # All conditions must be meat
+        - field: 'hostname' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+          check: # If any condition is met - check is considered successfully
+            - method: 'equals'
+              values: ["foo-bar.com", "foo-bar.net", "foo-bar.io"]
+
+            - method: 'regexp'
+              values: ["/bar-baz\.(com|net|io)/i"]
 
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
-          method: 'regexp'
-          values: ["/wp-(admin|include|content)/i"]
+          check: # If any condition is met - check is considered successfully
+            - method: 'equals'
+              values: [ "/admin.php", "phpinfo.php", ".env" ]
+
+            - method: 'regexp'
+              values: [ "/wp-(admin|include|content)/i" ]
 
       period: 60            # Period in seconds for which the number of requests is considered (measurement seconds)
       limit: 5              # If during the period the number of requests exceeds the limit, ban

@@ -1,6 +1,7 @@
 import express = require('express');
 import {Request} from "express-serve-static-core";
 import {ConditionsRule, IConditionsRule} from "@waf/Jail/Rules/ConditionsRule";
+import {createRequest} from "node-mocks-http";
 
 describe('ConditionsRule', () => {
 
@@ -8,11 +9,12 @@ describe('ConditionsRule', () => {
     let mockRequest: Request;
 
     beforeEach(() => {
-        mockRequest = {
+        mockRequest = createRequest({
             url: "/test",
             hostname: "localhost",
-            header: (name: string) => name === "user-agent" ? "Mock User Agent" : undefined,
-            get: (name: string) => name === "user-agent" ? "Mock User Agent" : undefined,
+            headers: {
+                "user-agent": "Mock User Agent"
+            },
             params: {},
             query: {},
             route: {},
@@ -24,16 +26,12 @@ describe('ConditionsRule', () => {
             originalUrl: "/test",
             path: "/test",
             baseUrl: "http://localhost",
-            app: express(),
-            fresh: false,
-            stale: true,
-            xhr: false,
             cookies: {},
             signedCookies: {},
             ip: "0.0.0.0",
             ips: [],
             subdomains: [],
-        } as any
+        })
 
         // @ts-ignore
         conditionsRule = new class extends ConditionsRule {
@@ -44,51 +42,51 @@ describe('ConditionsRule', () => {
     });
 
     it('checks conditions for URL', () => {
-        const conditions: IConditionsRule[] = [{field: 'url', method: 'equals', values: ['/test']}];
+        const conditions: IConditionsRule[] = [{field: 'url', check: [{method: 'equals', values: ['/test']}]}];
 
         // @ts-ignore
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions for hostname', () => {
-        const conditions: IConditionsRule[] = [{field: 'hostname', method: 'equals', values: ['localhost']}];
+        const conditions: IConditionsRule[] = [{field: 'hostname', check: [{method: 'equals', values: ['localhost']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions for user-agent', () => {
-        const conditions: IConditionsRule[] = [{field: 'user-agent', method: 'equals', values: ['Mock User Agent']}];
+        const conditions: IConditionsRule[] = [{field: 'user-agent', check: [{method: 'equals', values: ['Mock User Agent']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions for geo-country', () => {
-        const conditions: IConditionsRule[] = [{field: 'geo-country', method: 'equals', values: ['Country']}];
+        const conditions: IConditionsRule[] = [{field: 'geo-country', check: [{method: 'equals', values: ['Country']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions for geo-city', () => {
-        const conditions: IConditionsRule[] = [{field: 'geo-city', method: 'equals', values: ['City']}];
+        const conditions: IConditionsRule[] = [{field: 'geo-city', check: [{method: 'equals', values: ['City']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
     it('checks conditions for header', () => {
-        const conditions: IConditionsRule[] = [{field: 'header-user-agent', method: 'equals', values: ['Mock User Agent']}];
+        const conditions: IConditionsRule[] = [{field: 'header-user-agent', check: [{method: 'equals', values: ['Mock User Agent']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions regexp for hostname', () => {
-        const conditions: IConditionsRule[] = [{field: 'hostname', method: 'regexp', values: ['/host/']}];
+        const conditions: IConditionsRule[] = [{field: 'hostname', check: [{method: 'regexp', values: ['/host/']}]}];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(true);
     });
 
     it('checks conditions multiple rules', () => {
         const conditions: IConditionsRule[] = [
-            {field: 'geo-country', method: 'equals', values: ['Country2']},
-            {field: 'hostname', method: 'regexp', values: ['/host/']}
+            {field: 'geo-country', check: [{method: 'equals', values: ['Country2']}]},
+            {field: 'hostname', check: [{method: 'regexp', values: ['/host/']}]}
         ];
 
         expect(conditionsRule.checkConditionsForUnitTests(conditions, mockRequest, "Country", "City")).toBe(false);
