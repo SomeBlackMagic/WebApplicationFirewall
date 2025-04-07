@@ -46,7 +46,7 @@
     "@types/proper-lockfile": "^4.1.4",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/eslint-plugin-tslint": "^5.26.0",
-    "@typescript-eslint/parser": "^5.62.0",
+    "@typescript-eslint/parser": "^8.29.0",
     "@yao-pkg/pkg": "^6.3.2",
     "esbuild": "^0.25.2",
     "eslint": "^8.57.1",
