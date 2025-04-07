@@ -2,7 +2,7 @@ import {Request} from "express-serve-static-core";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 import {Log} from "@waf/Log";
-import {ConditionsRule, IConditionsRule} from "@waf/Jail/Rules/ConditionsRule";
+import {ConditionsRule, IConditionsRule, ICountersItem} from "@waf/Jail/Rules/ConditionsRule";
 import {IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
 
 
@@ -21,9 +21,9 @@ export class CompositeRule extends ConditionsRule {
         }
     }
 
-    private compositeCounters = {};
+    private compositeCounters: Record<string, ICountersItem[]> = {};
 
-    public async use(clientIp: string, country:string, city:string, req: Request): Promise<boolean|IBannedIPItem> {
+    public async use(clientIp: string, country:string, city:string, req: Request, requestId: string): Promise<boolean|IBannedIPItem> {
 
         const ruleTester: boolean = this.checkConditions(this.rule.conditions, req, country, city);
 
@@ -59,20 +59,24 @@ export class CompositeRule extends ConditionsRule {
         const now = Date.now();
         const periodMs = (this.rule.period || 60) * 1000;
         // We delete old notes (outside the period)
-        this.compositeCounters[compositeKey] = this.compositeCounters[compositeKey].filter(ts => now - ts <= periodMs);
+        this.compositeCounters[compositeKey] = this.compositeCounters[compositeKey].filter((item: ICountersItem) => now - item.time <= periodMs);
 
         // Add the current request
-        this.compositeCounters[compositeKey].push(now);
+        this.compositeCounters[compositeKey].push({
+            time: now,
+            requestId
+        });
         this.log.debug('Composite counter by key:' + compositeKey, this.compositeCounters[compositeKey].length);
 
         // If the number of queries exceeds the limit, we block IP
         if (this.compositeCounters[compositeKey].length >= (this.rule.limit || 100)) {
             this.log.info(`The composite rule worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`);
             return Promise.resolve({
-                ruleId: CompositeRule.ID,
+                ruleId: CompositeRule.ID+ ':' + this.rule.name,
                 ip: clientIp,
                 duration: this.rule.duration,
                 escalationRate: this.rule?.escalationRate || 1.0,
+                requestIds: this.compositeCounters[compositeKey].map(item => item.requestId),
             })
         }
 

@@ -62,10 +62,8 @@ describe('WAFMiddleware', () => {
             const middleware = new WAFMiddleware({}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
 
             const next = jest.fn();
-            const req = <Request>{
-                headers: {},
-            };
-            const res = <Response>{};
+            const req = createRequest();
+            const res = createResponse();
 
             await middleware.use()(req, res, next);
 
@@ -87,9 +85,7 @@ describe('WAFMiddleware', () => {
             const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
 
             const next = jest.fn();
-            const req = <Request>{
-                headers: {},
-            };
+            const req = createRequest();
             const res = createResponse();
 
             await middleware.use()(req, res, next);
@@ -121,9 +117,7 @@ describe('WAFMiddleware', () => {
             const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
 
             const next = jest.fn();
-            const req = <Request>{
-                headers: {},
-            };
+            const req = createRequest();
             const res = createResponse();
 
             await middleware.use()(req, res, next);
