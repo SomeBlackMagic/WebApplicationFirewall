@@ -49,7 +49,7 @@ export class StaticRule extends AbstractRule {
         const response = await fetch(this.rule.linkUrl)
             .then((result) => {
                 if(result.status !== 200) {
-                    this.log.error('Can not fetch data from link', [this.rule.linkUrl]);
+                    this.log.error('Can not fetch data from link', [this.rule.linkUrl, this.rule.name]);
                     return new Response('[]');
                 }
 
@@ -67,7 +67,7 @@ export class StaticRule extends AbstractRule {
             const data = <string[]>await response.json();
             if(data.length !== 0) {
                 this.blockedIPS = data;
-                this.log.trace('Loaded static blacklist', this.blockedIPS.length);
+                this.log.trace('Loaded static blacklist', [this.blockedIPS.length, this.rule.name]);
             } else {
                 this.log.warn('Blocked list not updated');
             }

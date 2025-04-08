@@ -45,7 +45,7 @@ export class FlexibleRule extends ConditionsRule {
             time: now,
             requestId: requestId
         });
-        this.log.debug('FlexibleRule counter by key: ' + clientIp, this.suspicions[clientIp].length);
+        this.log.debug('FlexibleRule '+ this.rule.name+' counter by ip: ' + clientIp, this.suspicions[clientIp].length);
 
         // If the number of queries exceeds the limit, we block IP
         if (this.suspicions[clientIp].length >= (this.rule.limit || 100)) {
