@@ -1,5 +1,4 @@
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import assert from "node:assert";
 import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
 import {Log} from "@waf/Log";
 import {JailStorageMemory} from "@waf/Jail/JailStorageMemory";
@@ -95,6 +94,18 @@ export class JailManager extends Singleton<JailManager, []>{
             name: 'waf_jail_reject_by_rule',
             help: 'Count of users who rejected and banned because of rule',
             labelNames: ['country', 'city', 'ruleId'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+        this.metrics['storage_all_ips'] = new promClient.Counter({
+            name: 'waf_jail_storage_all_ips',
+            help: 'Count of users who rejected and banned because of rule',
+            labelNames: ['country', 'city', 'ruleId'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
+        this.metrics['storage_data'] = new promClient.Gauge({
+            name: 'waf_jail_storage_data',
+            help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
+            labelNames: ['country', 'city', 'ruleId', 'isBlocked'],
             registers: [this.metricsInstance.getRegisters()]
         });
     }
@@ -210,12 +221,28 @@ export class JailManager extends Singleton<JailManager, []>{
     }
 
     private async syncDataWithStorage() {
+        this.reCalculateStorageMetrics();
         const rawJailList = await this.storage.load()
         const gropedJails = Object.fromEntries(rawJailList.map(item => [item.ip, item]));
         this.blockedIPs = this.mergeBanLists(this.blockedIPs, gropedJails)
         await this.storage.save(Object.values(this.blockedIPs))
     }
 
+
+    public reCalculateStorageMetrics() {
+        const counts = new Map<string, number>();
+
+        for (const entry of Object.values(this.blockedIPs)) {
+            const { ruleId, country, city } = entry.metadata;
+            const isBlocked = Date.now() < entry.unbanTime;
+            const key = `${ruleId}|||${country}|||${city}|||${isBlocked}`;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        for (const [key, value] of counts.entries()) {
+            const [ruleId, country, city, isBlocked] = key.split('|||');
+            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked}, value);
+        }
+    }
     private mergeBanLists(
         list1: Record<string, BanInfo>,
         list2: Record<string, BanInfo>
