@@ -317,6 +317,7 @@ describe('Jail Manager', () => {
                              "labels": {
                                  "city": "Chicago",
                                  "country": "USA",
+                                 "escalationCount": "1",
                                  "isBlocked": "true",
                                  "ruleId": "local"
                              },
@@ -326,6 +327,7 @@ describe('Jail Manager', () => {
                              "labels": {
                                  "city": "Los Angeles",
                                  "country": "USA",
+                                 "escalationCount": "2",
                                  "isBlocked": "false",
                                  "ruleId": "remote"
                              },
@@ -337,4 +339,5 @@ describe('Jail Manager', () => {
 
          });
      });
+
  });

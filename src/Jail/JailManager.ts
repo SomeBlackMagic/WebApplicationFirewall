@@ -105,7 +105,7 @@ export class JailManager extends Singleton<JailManager, []>{
         this.metrics['storage_data'] = new promClient.Gauge({
             name: 'waf_jail_storage_data',
             help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
-            labelNames: ['country', 'city', 'ruleId', 'isBlocked'],
+            labelNames: ['country', 'city', 'ruleId', 'isBlocked', 'escalationCount'],
             registers: [this.metricsInstance.getRegisters()]
         });
     }
@@ -235,12 +235,12 @@ export class JailManager extends Singleton<JailManager, []>{
         for (const entry of Object.values(this.blockedIPs)) {
             const { ruleId, country, city } = entry.metadata;
             const isBlocked = Date.now() < entry.unbanTime;
-            const key = `${ruleId}|||${country}|||${city}|||${isBlocked}`;
+            const key = `${ruleId}|||${country}|||${city}|||${isBlocked}|||${entry.escalationCount}`;
             counts.set(key, (counts.get(key) ?? 0) + 1);
         }
         for (const [key, value] of counts.entries()) {
-            const [ruleId, country, city, isBlocked] = key.split('|||');
-            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked}, value);
+            const [ruleId, country, city, isBlocked, escalationCount] = key.split('|||');
+            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked, escalationCount}, value);
         }
     }
     private mergeBanLists(
