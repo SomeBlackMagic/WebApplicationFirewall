@@ -94,7 +94,7 @@ export class JailManager extends Singleton<JailManager, []>{
         this.metrics['reject_and_ban'] = new promClient.Counter({
             name: 'waf_jail_reject_by_rule',
             help: 'Count of users who rejected and banned because of rule',
-            labelNames: ['country', 'city'],
+            labelNames: ['country', 'city', 'ruleId'],
             registers: [this.metricsInstance.getRegisters()]
         });
     }
@@ -136,8 +136,8 @@ export class JailManager extends Singleton<JailManager, []>{
                     city: city,
                     requestIds: bannedIPItem.requestIds.join(',')
                 });
+                this.metrics['reject_and_ban']?.inc({country, city, ruleId: bannedIPItem.ruleId});
             }));
-            this.metrics['reject_and_ban']?.inc({country, city});
             return true;
         }
 
