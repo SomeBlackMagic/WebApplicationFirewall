@@ -160,7 +160,8 @@ describe('Jail Manager', () => {
                     {
                         "labels": {
                             "city": "Chicago",
-                            "country": "USA"
+                            "country": "USA",
+                            "ruleId": "local"
                         },
                         "value": 1
                     }
