@@ -33,44 +33,18 @@ Modular and configurable WAF server written in TypeScript using Express.js.
 ## Configuration
 
 
-Example: [`config.example.yaml`](./config.example.yaml)
+Minimal configuration for run application:
 
 ```yaml
-detectClientIp:
-  headers: ["x-forwarded-for", "cf-connecting-ip"]
-
-jailManager:
-  storage: file
-  driverConfig:
-    filePath: ./data/blocked_ips.json
-    locker:
-      enabled: true
-      config:
-        retries: 3
-
-rules:
-  - type: "static"
-    linkUrl: "https://example.com/blacklist.json"
-    updateInterval: 60000
-
-  - type: "composite"
-    keys: ["ip", "user-agent", "url"]
-    conditions:
-      - field: "url"
-        method: "equals"
-        values: ["/admin"]
-    limit: 10
-    period: 60
-    duration: 300
-
-api:
-  auth:
-    enabled: true
-    username: "admin"
-    password: "admin"
-
 proxy:
-  host: "http://your-app:8080"
+    host: "http://your-app:8080"
+
+wafMiddleware:
+  mode: normal
+
+  blacklist:
+    ips: [ '10.0.0.1', '10.0.0.2' ]
+
 ```
 
 Application load configuration on start.
@@ -79,12 +53,45 @@ By default, configuration load fom file ```config.yaml``` in pwd folder.
 
 Env variable for configure the application:
 
-| Variable        | Desctiontion                                | Default value |
-| --------------- |---------------------------------------------| ------------- |
-| WAF_CONFIG_TYPE | How to load configuration. 'file' or 'link' | file          |
+| Variable          | Desctiontion                                | Default value |
+|-------------------|---------------------------------------------| ------------- |
+| WAF_CONFIG_TYPE   | How to load configuration. 'file' or 'link' | file          |
 | WAF_CONFIG_SOURCE | Link on file system or http href            |               |
 
 ## 🚀 Running
+
+You can run application using one of methods: binary, docker
+
+### Preparing
+If toy want to use GeoIP2 database for detected client geo you need to download GeoIP2-City.mmdb and GeoIP2-Country.mmdb,
+and store in data folder(mount in docker container, move to /var/lib/waf)
+
+### Prepear running Binary
+You need to download latest version from release page
+```shell
+wget https://github.com/SomeBlackMagic/WebApplicationFirewall/releases/latest/download/waf-linux-x64
+chmod +x waf-linux-x64
+mv waf-linux-x64 /usr/local/bin/waf
+```
+Then [configure env variables](#-environment-variables) and export in shell or store in /etc/waf/env_vars
+if you wnt to run application as [systemd service](docs/waf.service).
+
+### Prepare running docker
+Download latest stable version of docker image
+```shell
+docker pull ghcr.io/someblackmagic/web-application-firewall:v1.0.0
+```
+
+### Running in docker container
+```
+docker run \
+  -p 3000:3000 \
+  -e WAF_LOG_DEBUG=true \
+  -v $(pwd)/config.yaml:/app/config.yaml \
+  -v $(pwd)/GeoIP2-City.mmdb:/app/GeoIP2-City.mmdb \
+  -v $(pwd)/GeoIP2-Country.mmdb:/app/GeoIP2-Country.mmdb \
+  ghcr.io/someblackmagic/web-application-firewall:v1.0.0
+```
 
 ### Install dependencies
 ```bash
@@ -106,14 +113,16 @@ node ./node_modules/.bin/ts-node src/main.ts
 
 ## 📦 Environment Variables
 
-| Variable                | Description                          |
-|-------------------------|--------------------------------------|
-| `WAF_CONFIG_SOURCE`       | Path to config YAML or URL           |
-| `WAF_CONFIG_TYPE`       | `file` or `link`                     |
-| `WAF_LOG_DEBUG`         | Enable debug logs                    |
-| `WAF_AUDIT`             | Enable request auditing              |
-| `WAF_AUDIT_REQUEST`     | Log incoming requests                |
-| `WAF_AUDIT_RESPONSE`    | Log outgoing responses               |
+| Variable                | Description                   |
+|-------------------------|-------------------------------|
+| `WAF_CONFIG_SOURCE`     | Path to config YAML or URL    |
+| `WAF_CONFIG_TYPE`       | `file` or `link`              |
+| `WAF_LOG_DEBUG`         | Enable debug logs             |
+| `WAF_AUDIT`             | Enable request auditing       |
+| `WAF_AUDIT_REQUEST`     | Log incoming requests         |
+| `WAF_AUDIT_RESPONSE`    | Log outgoing responses        |
+| `WAF_AUDIT_RESPONSE`    | Log outgoing responses        |
+
 
 ---
 
@@ -133,7 +142,7 @@ node ./node_modules/.bin/ts-node src/main.ts
 - Web UI for managing jail and rules
 - Redis storage backend
 - JWT-based authentication
-- Prometheus metrics support
+- ~~Prometheus metrics support~~
 
 ---
 

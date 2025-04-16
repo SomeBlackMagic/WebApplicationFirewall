@@ -7,8 +7,8 @@ import {Log} from "@waf/Log";
 import * as promClient from "prom-client";
 import {Metrics} from "@waf/Metrics/Metrics";
 import {Metric} from "prom-client";
-import {Whitelist} from "@waf/Static/Whitelist";
-import {Blacklist} from "@waf/Static/Blacklist";
+import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
+import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
 
 export class WAFMiddleware {
 
@@ -189,6 +189,8 @@ export class WAFMiddleware {
 
 export interface IWAFMiddlewareConfig {
     mode?: "normal" | "audit",
+    whitelist?: IWhitelistConfig,
+    blacklist?: IBlacklistConfig,
     detectClientIp?: {
         headers?: string[];
     }
