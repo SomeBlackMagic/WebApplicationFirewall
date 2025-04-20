@@ -41,8 +41,6 @@ interface AppConfig {
     }
     wafMiddleware: IWAFMiddlewareConfig,
     jailManager: IJailManagerConfig
-    whitelist: IWhitelistConfig,
-    blacklist: IBlacklistConfig,
     api: IApiConfig,
     metrics: IMetricsConfig,
     sentry: ISentryConfig
@@ -63,8 +61,8 @@ interface AppConfig {
 
     JailManager.build(appConfig.jailManager);
 
-    Whitelist.buildInstance(appConfig.whitelist)
-    Blacklist.buildInstance(appConfig.blacklist)
+    Whitelist.buildInstance(appConfig?.wafMiddleware?.whitelist ?? {})
+    Blacklist.buildInstance(appConfig?.wafMiddleware?.blacklist ?? {})
 
     api.bootstrap();
 

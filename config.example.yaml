@@ -18,6 +18,19 @@ wafMiddleware:
   #Policy Audit Mode configures waf to allow all traffic while logging all connections
   #vthat would otherwise be dropped by policies. Default value audit
   mode: normal # or audit
+
+  whitelist:
+    ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL
+    ipSubnet: [ '192.168.0.0/22', '10.0.0.0/22' ] # OPTIONAL
+    geoCountry: [ 'USA', 'CA' ] # OPTIONAL
+    geoCity: [ 'Lviv' ] # OPTIONAL
+
+  blacklist:
+    ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL
+    ipSubnet: [ '192.168.0.0/22', '10.0.0.0/22' ] # OPTIONAL
+    geoCountry: [ 'USA', 'CA' ] # OPTIONAL
+    geoCity: [ 'Lviv' ] # OPTIONAL
+
   detectClientIp:
     headers: ['fastly-client-ip', 'cf-connecting-ip', 'x-original-forwarded-for', ]
 
@@ -102,17 +115,6 @@ jailManager:
       escalationRate: 1.1   # OPTIONAL
 
 
-whitelist:
-  ips: ['10.0.0.1', '10.0.0.2'] # OPTIONAL
-  ipSubnet: ['192.168.0.0/22', '10.0.0.0/22'] # OPTIONAL
-  geoCountry: ['USA', 'CA'] # OPTIONAL
-  geoCity: ['Lviv'] # OPTIONAL
-
-blacklist:
-  ips: ['10.0.0.1', '10.0.0.2'] # OPTIONAL
-  ipSubnet: ['192.168.0.0/22', '10.0.0.0/22'] # OPTIONAL
-  geoCountry: ['USA', 'CA'] # OPTIONAL
-  geoCity: ['Lviv'] # OPTIONAL
 
 sentry:
   enabled: false
