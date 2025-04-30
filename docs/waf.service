@@ -1,0 +1,15 @@
+# /etc/systemd/system/waf.service
+[Unit]
+Description=WAF Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/waf
+WorkingDirectory=/var/lib/waf
+EnvironmentFile=/etc/waf/env_vars
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
