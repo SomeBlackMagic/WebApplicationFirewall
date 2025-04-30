@@ -1,10 +1,9 @@
+# Web Application Firewall (WAF) - Full Documentation 🛡️
 ![Build App](https://github.com/SomeBlackMagic/WebApplicationFirewall/actions/workflows/build.yaml/badge.svg)
 [![codecov](https://codecov.io/gh/SomeBlackMagic/WebApplicationFirewall/graph/badge.svg?token=045DKMM46F)](https://codecov.io/gh/SomeBlackMagic/WebApplicationFirewall)
 [![Github Repo Size](https://img.shields.io/github/repo-size/SomeBlackMagic/WebApplicationFirewall.svg)](https://github.com/SomeBlackMagic/WebApplicationFirewall)
 ![GitHub License](https://img.shields.io/github/license/SomeBlackMagic/WebApplicationFirewall)
 ![GitHub Release](https://img.shields.io/github/v/release/SomeBlackMagic/WebApplicationFirewall)
-
-# Web Application Firewall (WAF) - Full Documentation 🛡️
 
 ## Table of Contents
 
