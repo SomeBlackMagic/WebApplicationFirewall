@@ -160,9 +160,8 @@ The project includes Dockerfiles for building images:
         -v $(pwd)/config.yaml:/app/config.yaml \\
         -v $(pwd)/data:/app/data \\
         -v $(pwd)/geoip_data:/app/geoip_data \\
-        # Set environment variables for GeoIP paths if they are not standard
-        -e GEOIP_COUNTRY_PATH=/app/geoip_data/GeoLite2-Country.mmdb \\
-        -e GEOIP_CITY_PATH=/app/geoip_data/GeoLite2-City.mmdb \\
+        # Pass GeoIP paths via config.yaml or mount them if needed
+        # Example if paths are configured in config.yaml as /app/geoip_data/...
         my-waf-app
     ```
     *Remember to configure `config.yaml` inside the container to use the correct paths, e.g., `/app/data/blocked_ips.json` and `/app/geoip_data/...`.*
@@ -171,25 +170,25 @@ The project includes Dockerfiles for building images:
 
 ## ⚙️ Configuration
 
-WAF configuration is managed via a YAML file (default `config.yaml` in the project root) or through environment variables.
+WAF configuration is managed via a YAML file (default `config.yaml` in the project root) or through environment variables that control how the configuration is loaded.
 
 ### Loading Configuration
 
 *   **Default:** Loads `config.yaml` from the current working directory.
 *   **Via Environment Variables:**
     *   `WAF_CONFIG_TYPE`: Source type (`file` or `link`). Default `file`.
-    *   `WAF_CONFIG_SOURCE`: Path to the file (if `WAF_CONFIG_TYPE=file`) or URL (if `WAF_CONFIG_TYPE=link`).
+    *   `WAF_CONFIG_SOURCE`: Path to the file (if `WAF_CONFIG_TYPE=file`) or URL (if `WAF_CONFIG_TYPE=link`). Default `./config.yaml` if `WAF_CONFIG_TYPE=file`.
 
 ### Core Parameters
 
 *   `mode`: WAF operating mode.
     *   `audit` (default): Only logs rule triggers but does not block requests. Useful for testing rules.
     *   `normal`: Blocks requests when rules are triggered.
-*   `port`: Port the WAF server will listen on (default 3000).
+*   `port`: Port the WAF server will listen on (default 3000, **cannot be changed via environment variable**).
 *   `log`: Logging settings (see [Logging](#logging-log-📝)).
 *   `sentry`: Sentry integration settings.
 *   `metrics`: Prometheus metrics export settings (see [Metrics](#metrics-metrics-📊)).
-*   `geoip`: GeoIP settings (paths to database files).
+*   `geoip`: GeoIP settings (paths to database files, **cannot be set via environment variables**).
     *   `countryPath`: Path to `GeoLite2-Country.mmdb`.
     *   `cityPath`: Path to `GeoLite2-City.mmdb`.
 
@@ -264,14 +263,14 @@ Settings for running WAF as a reverse proxy.
 Settings for the built-in REST API for managing the WAF.
 
 *   `enabled`: Enable (`true`) or disable (`false`) the API.
-*   `auth`: Basic authentication settings for the API.
+*   `auth`: Basic authentication settings for the API (**cannot be set via environment variables**).
     *   `enabled`: Enable (`true`) or disable (`false`) authentication.
     *   `username`: Username.
     *   `password`: Password.
 
 ### Logging (`log`) 📝
 
-Logging settings using `@elementary-lab/logger`.
+Logging settings using `@elementary-lab/logger`. Configured via YAML only.
 
 *   `level`: Logging level (`trace`, `debug`, `info`, `warn`, `error`, `fatal`).
 *   `transport`: Transport type (e.g., `console`).
@@ -279,7 +278,7 @@ Logging settings using `@elementary-lab/logger`.
 
 ### Metrics (`metrics`) 📊
 
-Settings for exporting metrics in Prometheus format.
+Settings for exporting metrics in Prometheus format. Configured via YAML only.
 
 *   `enabled`: Enable (`true`) or disable (`false`) metrics collection and export.
 *   `path`: Path where metrics will be available (e.g., `/metrics`).
@@ -290,25 +289,19 @@ See [`config.example.yaml`](./config.example.yaml).
 
 ### Environment Variables 📦
 
-Some parameters can be overridden or set via environment variables:
+While most configuration is done via the YAML file, a few environment variables can influence the WAF's behavior, how it loads its configuration, or external integrations:
 
-| Variable                | Description                                   | Default Value | Corresponding YAML Parameter |
-| :---------------------- | :-------------------------------------------- | :------------ | :------------------------- |
-| `WAF_CONFIG_TYPE`       | Configuration source type (`file` or `link`)  | `file`        | -                          |
-| `WAF_CONFIG_SOURCE`     | Path to config file or URL                    | -             | -                          |
-| `PORT`                  | WAF server port                               | 3000          | `port`                     |
-| `WAF_LOG_LEVEL`         | Logging level                                 | `info`        | `log.level`                |
-| `WAF_LOG_DEBUG`         | Enable debug logs (deprecated?)               | `false`       | (Managed by `WAF_LOG_LEVEL`) |
-| `WAF_AUDIT`             | Enable request/response audit (deprecated?)   | `false`       | -                          |
-| `WAF_AUDIT_REQUEST`     | Log incoming requests (deprecated?)           | `false`       | -                          |
-| `WAF_AUDIT_RESPONSE`    | Log outgoing responses (deprecated?)          | `false`       | -                          |
-| `SENTRY_DSN`            | DSN for Sentry integration                    | -             | `sentry.dsn`               |
-| `GEOIP_COUNTRY_PATH`    | Path to GeoIP Country database                | -             | `geoip.countryPath`        |
-| `GEOIP_CITY_PATH`       | Path to GeoIP City database                   | -             | `geoip.cityPath`           |
-| `WAF_API_AUTH_USERNAME` | Username for API Basic Auth                   | -             | `api.auth.username`        |
-| `WAF_API_AUTH_PASSWORD` | Password for API Basic Auth                   | -             | `api.auth.password`        |
+| Variable            | Description                                   | Default Value             | Corresponding YAML Parameter |
+| :------------------ | :-------------------------------------------- | :------------------------ | :------------------------- |
+| `WAF_CONFIG_TYPE`   | Configuration source type (`file` or `link`)  | `file`                    | -                          |
+| `WAF_CONFIG_SOURCE` | Path to config file or URL                    | `./config.yaml`           | -                          |
+| `SENTRY_DSN`        | DSN for Sentry integration                    | -                         | `sentry.dsn`               |
+| `APP_VERSION`       | Application version tag for logs/Sentry       | `dev-dirty`               | -                          |
+| `WAF_AUDIT`         | Enable request/response audit (legacy)        | `false`                   | -                          |
+| `WAF_AUDIT_REQUEST` | Log incoming requests if audit enabled (legacy)| `false`                   | -                          |
+| `WAF_AUDIT_RESPONSE`| Log outgoing responses if audit enabled (legacy)| `false`                   | -                          |
 
-*(Note: Some variables like `WAF_AUDIT_*` might be deprecated or replaced by newer logging/tracing mechanisms. Check the source code for current status).*
+*(Note: The `WAF_AUDIT_*` variables control a legacy audit mechanism. More detailed logging is configured via the `log` section in the YAML file).*
 
 ---
 
@@ -368,29 +361,28 @@ The WAF is built on Node.js and the Express.js framework. The core logic is impl
 
 #### `ConfigLoader` (`src/ConfigLoader.ts`)
 
-*   Loads configuration from a file or URL.
-*   Handles environment variables for overriding parameters.
+*   Loads configuration from a file or URL based on `WAF_CONFIG_TYPE` and `WAF_CONFIG_SOURCE`.
 
 #### `Api` (`src/Api.ts`)
 
 *   Implements REST API endpoints for managing the WAF (viewing bans, unbanning).
-*   Sets up Basic authentication.
+*   Sets up Basic authentication based on YAML config.
 
 #### `GeoIP2` (`src/GeoIP2.ts`)
 
-*   Wrapper for working with MaxMind GeoIP2 databases (`.mmdb`).
+*   Wrapper for working with MaxMind GeoIP2 databases (`.mmdb`). Paths configured via YAML.
 *   Provides methods to get country and city from an IP.
 
 #### `Log` (`src/Log.ts`) / `Sentry` (`src/Sentry.ts`)
 
-*   Configures and provides a logger instance (`@elementary-lab/logger`).
-*   Initializes and integrates with Sentry for error tracking.
+*   Configures and provides a logger instance (`@elementary-lab/logger`) based on YAML config.
+*   Initializes and integrates with Sentry using `SENTRY_DSN` or YAML config.
 
 #### `Metrics` (`src/Metrics/Metrics.ts`)
 
-*   Configures and manages Prometheus metrics (`prom-client`).
+*   Configures and manages Prometheus metrics (`prom-client`) based on YAML config.
 *   Registers metrics from various components (`WAFMiddleware`, `JailManager`).
-*   Provides an endpoint for scraping metrics (default `/metrics`).
+*   Provides an endpoint for scraping metrics (path configured via YAML).
 
 ---
 
@@ -454,7 +446,7 @@ Rules are defined in the `jailManager.filterRules` section of the configuration 
 ### Geolocation Detection 🌍
 
 *   WAF uses local MaxMind GeoIP2 databases (`.mmdb`) to determine the country and city based on an IP address.
-*   Database paths are set in the `geoip` configuration section or via the `GEOIP_COUNTRY_PATH` and `GEOIP_CITY_PATH` environment variables.
+*   Database paths are set in the `geoip` configuration section (YAML only).
 *   Geo-data is used for:
     *   Whitelist/Blacklist checks by country/city.
     *   Conditions in rules (`FlexibleRule`, `CompositeRule`).
@@ -468,7 +460,7 @@ If enabled (`api.enabled: true`), the WAF provides a REST API for management.
 
 ### Authentication
 
-Uses HTTP Basic Authentication if enabled (`api.auth.enabled: true`). Username and password are set in `api.auth.username` and `api.auth.password`.
+Uses HTTP Basic Authentication if enabled (`api.auth.enabled: true`). Username and password are set in the YAML config (`api.auth.username` and `api.auth.password`).
 
 ### Endpoints
 
@@ -479,7 +471,7 @@ All endpoints are prefixed with `/waf`
 *   **Description:** Checks the service health.
 *   **Auth:** Not required.
 *   **Response:**
-    *   `200 OK`: Response body `OK`.
+    *   `200 OK`: Response body `Hello from WAF server!`.
 
 #### `GET /waf/jail-manager/baned-users`
 
@@ -534,9 +526,9 @@ All endpoints are prefixed with `/waf`
 Using Docker is the recommended deployment method. Use `.docker/prod.Dockerfile` to build a production-ready image.
 
 *   **Configuration:** Pass `config.yaml` via a volume. Ensure paths within the configuration (`filePath` for Jail, `countryPath`/`cityPath` for GeoIP) match the paths inside the container.
-*   **Data:** If using `jailManager.storage.driver: file`, mount a volume for the ban file (e.g., `data/` in the example above).
-*   **GeoIP Databases:** Mount a volume with the `.mmdb` files and specify their paths in `config.yaml` or via environment variables (`GEOIP_COUNTRY_PATH`, `GEOIP_CITY_PATH`).
-*   **Ports:** Expose the port specified in `port` (default 3000).
+*   **Data:** If using `jailManager.storage.driver: file`, mount a volume for the ban file (e.g., `/app/data`).
+*   **GeoIP Databases:** Mount a volume with the `.mmdb` files (e.g., to `/app/geoip_data`) and ensure the paths in `config.yaml` (`geoip.countryPath`, `geoip.cityPath`) point to these mounted files.
+*   **Ports:** Expose the required port (default 3000).
 
 ### General Recommendations
 
@@ -551,7 +543,7 @@ Using Docker is the recommended deployment method. Use `.docker/prod.Dockerfile`
 
 ### Prometheus Metrics
 
-If enabled (`metrics.enabled: true`), the WAF exposes metrics in Prometheus format at the path specified in `metrics.path` (default `/metrics`).
+If enabled (`metrics.enabled: true`), the WAF exposes metrics in Prometheus format at the path specified in the YAML config (`metrics.path`, default `/metrics`).
 
 Main metric groups:
 
@@ -584,7 +576,7 @@ The dashboard will show graphs for blocked requests, rule triggers, number of IP
 2.  Clone the repository.
 3.  Install dependencies: `npm install`.
 4.  Create `config.yaml` from `config.example.yaml`.
-5.  Download GeoIP databases and place them in the project root (or specify the path in `config.yaml`).
+5.  Download GeoIP databases and place them in the project root (or configure paths in `config.yaml`).
 
 ### Running Tests ✅
 
