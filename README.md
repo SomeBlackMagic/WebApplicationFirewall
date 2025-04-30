@@ -1,30 +1,36 @@
+![Build App](https://github.com/SomeBlackMagic/WebApplicationFirewall/actions/workflows/build.yaml/badge.svg)
+[![codecov](https://codecov.io/gh/SomeBlackMagic/WebApplicationFirewall/graph/badge.svg?token=045DKMM46F)](https://codecov.io/gh/SomeBlackMagic/WebApplicationFirewall)
+[![Github Repo Size](https://img.shields.io/github/repo-size/SomeBlackMagic/WebApplicationFirewall.svg)](https://github.com/SomeBlackMagic/WebApplicationFirewall)
+![GitHub License](https://img.shields.io/github/license/SomeBlackMagic/WebApplicationFirewall)
+![GitHub Release](https://img.shields.io/github/v/release/SomeBlackMagic/WebApplicationFirewall)
+
 # Web Application Firewall (WAF) - Full Documentation 🛡️
 
 ## Table of Contents
 
 1.  [Introduction](#introduction)
     *   [Purpose](#purpose)
-    *   [Key Features](#key-features-✨)
+    *   [✨ Key Features](#-key-features)
 2.  [🚀 Getting Started](#-getting-started)
     *   [Requirements](#requirements)
     *   [Installation](#installation)
     *   [Running](#running)
     *   [Running with Docker](#running-with-docker)
 3.  [⚙️ Configuration](#️-configuration)
-    *   [Loading Configuration](#loading-configuration)
+    *   [💾 Loading Configuration](#-loading-configuration)
     *   [Core Parameters](#core-parameters)
     *   [Client IP Detection (`detectClientIp`)](#client-ip-detection-detectclientip)
     *   [Country/City Detection (`detectClientCountry`/`detectClientCity`)](#countrycity-detection-detectclientcountrydetectclientcity)
-    *   [Jail System (`jailManager`)](#jail-system-jailmanager-⛔)
-        *   [Storage (`storage`)](#storage-storage-💾)
-        *   [Filter Rules (`filterRules`)](#filter-rules-filterrules-⚖️)
-    *   [Static Lists (`whitelist`, `blacklist`)](#static-lists-whitelist-blacklist-✉️)
+    *   [⛔ Jail System (`jailManager`)](#-jail-system-jailmanager)
+        *   [Storage (`storage`)](#storage-storage)
+        *   [Filter Rules (`filterRules`)](#filter-rules-filterrules)
+    *   [✉️ Static Lists (`whitelist`, `blacklist`)](#️-static-lists-whitelist-blacklist)
     *   [Proxy (`proxy`)](#proxy-proxy)
-    *   [API (`api`)](#api-api)
-    *   [Logging (`log`)](#logging-log-📝)
-    *   [Metrics (`metrics`)](#metrics-metrics-📊)
+    *   [🛡️ API (`api`)](#️-api-api)
+    *   [📝 Logging (`log`)](#-logging-log)
+    *   [📊 Metrics (`metrics`)](#-metrics-metrics)
     *   [Configuration Example](#configuration-example)
-    *   [Environment Variables](#environment-variables-📦)
+    *   [📦 Environment Variables](#-environment-variables)
 4.  [🏛️ Architecture](#️-architecture)
     *   [Overview](#overview)
     *   [Request Processing Flow](#request-processing-flow)
@@ -46,8 +52,8 @@
         *   [Static](#static)
         *   [Flexible](#flexible)
         *   [Composite](#composite)
-    *   [Geolocation Detection](#geolocation-detection-🌍)
-6.  [🔌 API Reference](#-api-reference)
+    *   [🌍 Geolocation Detection](#-geolocation-detection)
+6.  [🧰 API Reference](#-api-reference)
     *   [Authentication](#authentication)
     *   [Endpoints](#endpoints)
         *   [`GET /waf/healthz`](#get-wafhealthz)
@@ -60,40 +66,43 @@
     *   [Prometheus Metrics](#prometheus-metrics)
     *   [Grafana Dashboard](#grafana-dashboard)
 9.  [🧑‍💻 Development](#-development)
+    *   [Prerequisites](#prerequisites)
     *   [Environment Setup](#environment-setup)
-    *   [Running Tests](#running-tests-✅)
+    *   [✅ Running Tests](#-running-tests)
     *   [Building the Project](#building-the-project)
     *   [Project Structure](#project-structure)
-    *   [Contribution Guide](#contribution-guide-todo-🤝)
+    *   [🤝 Contribution Guide (TODO)](#-contribution-guide-todo)
+    *   [🔭 TODO / Ideas](#-todo--ideas)
 10. [📄 License](#-license)
+11. [📊 Dependencies](#-dependencies)
+
 
 ---
 
 ## Introduction
 
+Modular and configurable WAF server written in TypeScript using Express.js.
+
 ### Purpose
 
 This project provides a modular and configurable Web Application Firewall (WAF) server written in TypeScript using Express.js. Its primary purpose is to protect your web applications from various types of attacks and unwanted traffic by filtering incoming HTTP requests based on a set of rules.
 
-### Key Features ✨
+### ✨ Key Features
 
-*   **Flexible Blocking Rules:**
+*   **⚖️ Flexible Blocking Rules:**
     *   Static IP blacklists (local or via URL).
     *   Behavioral filters (based on URL, User-Agent, geolocation, and other request fields).
     *   Composite rules with request limits per time period.
-*   **Jail System:**
+*   **⛔ Jail System:**
     *   Temporary IP banning with escalation (increasing ban time for repeat offenders).
     *   In-memory or file-based storage for the ban list.
-    *   Geolocation resolution (country, city) for banned IPs using GeoIP.
-*   **Whitelist Support:**
+    *   GeoIP-based location resolution (country, city) for banned IPs.
+*   **✉️ Whitelist Support:**
     *   Allowing requests by IP, subnet, country, or city, bypassing all other checks.
-*   **Configuration:** Load settings from a local YAML file or via URL.
-*   **Management:** REST API for viewing and removing bans.
-*   **Observability:**
-    *   Optional request and response auditing via environment variables.
-    *   Prometheus integration for metrics collection.
-    *   Sentry integration for error tracking.
-*   **Proxying:** Ability to act as a reverse proxy for your main application.
+*   **💾 Configuration via YAML or URL.**
+*   **🛡️ REST API for managing bans.**
+*   **🔎 Optional request auditing via ENV.**
+*   **⚙️ Proxy support for backend services.**
 
 ---
 
@@ -130,9 +139,8 @@ This project provides a modular and configurable Web Application Firewall (WAF) 
 2.  **Download GeoIP databases:** Place the `GeoLite2-Country.mmdb` and `GeoLite2-City.mmdb` files in the project root (or the path specified in the configuration).
 3.  **Start the application:**
     ```bash
-    npm start
-    # Or directly via ts-node:
-    # node ./node_modules/.bin/ts-node src/main.ts
+    npm install
+    node ./node_modules/.bin/ts-node src/main.ts
     ```
     By default, the WAF will listen on port 3000.
 
@@ -155,11 +163,11 @@ The project includes Dockerfiles for building images:
     *   Place the `.mmdb` files in a directory on the host machine (e.g., `geoip_data`).
 3.  **Run the container:**
     ```bash
-    docker run -d --name waf \\
-        -p 3000:3000 \\
-        -v $(pwd)/config.yaml:/app/config.yaml \\
-        -v $(pwd)/data:/app/data \\
-        -v $(pwd)/geoip_data:/app/geoip_data \\
+    docker run -d --name waf \
+        -p 3000:3000 \
+        -v $(pwd)/config.yaml:/app/config.yaml \
+        -v $(pwd)/data:/app/data \
+        -v $(pwd)/geoip_data:/app/geoip_data \
         # Pass GeoIP paths via config.yaml or mount them if needed
         # Example if paths are configured in config.yaml as /app/geoip_data/...
         my-waf-app
@@ -172,7 +180,7 @@ The project includes Dockerfiles for building images:
 
 WAF configuration is managed via a YAML file (default `config.yaml` in the project root) or through environment variables that control how the configuration is loaded.
 
-### Loading Configuration
+### 💾 Loading Configuration
 
 *   **Default:** Loads `config.yaml` from the current working directory.
 *   **Via Environment Variables:**
@@ -185,9 +193,9 @@ WAF configuration is managed via a YAML file (default `config.yaml` in the proje
     *   `audit` (default): Only logs rule triggers but does not block requests. Useful for testing rules.
     *   `normal`: Blocks requests when rules are triggered.
 *   `port`: Port the WAF server will listen on (default 3000, **cannot be changed via environment variable**).
-*   `log`: Logging settings (see [Logging](#logging-log-📝)).
+*   `log`: Logging settings (see [Logging](#-logging-log)).
 *   `sentry`: Sentry integration settings.
-*   `metrics`: Prometheus metrics export settings (see [Metrics](#metrics-metrics-📊)).
+*   `metrics`: Prometheus metrics export settings (see [Metrics](#-metrics-metrics)).
 *   `geoip`: GeoIP settings (paths to database files, **cannot be set via environment variables**).
     *   `countryPath`: Path to `GeoLite2-Country.mmdb`.
     *   `cityPath`: Path to `GeoLite2-City.mmdb`.
@@ -207,12 +215,12 @@ Configuration for how the request's geolocation is determined.
     *   `header`: Use the value from a specified HTTP header.
 *   `header`: Header name (used if `method: header`).
 
-### Jail System (`jailManager`) ⛔
+### ⛔ Jail System (`jailManager`)
 
 Configuration for the temporary IP banning mechanism.
 
 *   `enabled`: Enable (`true`) or disable (`false`) the jail system.
-*   `storage`: Settings for the banned IP storage. 💾
+*   `storage`: Settings for the banned IP storage.
     *   `driver`: Storage type.
         *   `memory`: Store in the application's memory (data lost on restart).
         *   `file`: Store in a JSON file.
@@ -224,9 +232,9 @@ Configuration for the temporary IP banning mechanism.
                 *   `config`: Parameters for `proper-lockfile` (e.g., `retries`).
 *   `syncInterval`: Interval (in milliseconds) for synchronizing data between memory and persistent storage (e.g., file). Default 5000 (5 seconds).
 *   `syncAlways`: Synchronize data with storage after *every* ban addition (`true`) or only at the `syncInterval` (`false`). Default `false`.
-*   `filterRules`: List of filter rules that can lead to a ban (see [Filter Rules](#filter-rules-filterrules-️)). ⚖️
+*   `filterRules`: List of filter rules that can lead to a ban (see [Filter Rules](#filter-rules-filterrules)).
 
-### Static Lists (`whitelist`, `blacklist`) ✉️
+### ✉️ Static Lists (`whitelist`, `blacklist`)
 
 Configuration for static whitelists and blacklists. Checked *before* `jailManager`.
 
@@ -241,7 +249,7 @@ Configuration for static whitelists and blacklists. Checked *before* `jailManage
     *   `enabled`: Enable (`true`) or disable (`false`).
     *   `ips`, `countries`, `cities`, `linkUrl`, `updateInterval`: Similar to `whitelist`, but for blocking.
 
-### Filter Rules (`filterRules`) ⚖️
+### Filter Rules (`filterRules`)
 
 An array of rules used by `jailManager` to detect suspicious activity and ban IPs. Each rule is described by an object with the following fields:
 
@@ -258,7 +266,7 @@ Settings for running WAF as a reverse proxy.
 *   `host`: URL of your backend service to which verified requests will be proxied (e.g., `http://your-app:8080`).
 *   `config`: Additional parameters for `http-proxy-middleware` (see library documentation).
 
-### API (`api`)
+### 🛡️ API (`api`)
 
 Settings for the built-in REST API for managing the WAF.
 
@@ -268,7 +276,7 @@ Settings for the built-in REST API for managing the WAF.
     *   `username`: Username.
     *   `password`: Password.
 
-### Logging (`log`) 📝
+### 📝 Logging (`log`)
 
 Logging settings using `@elementary-lab/logger`. Configured via YAML only.
 
@@ -276,7 +284,7 @@ Logging settings using `@elementary-lab/logger`. Configured via YAML only.
 *   `transport`: Transport type (e.g., `console`).
 *   `transportConfig`: Transport configuration.
 
-### Metrics (`metrics`) 📊
+### 📊 Metrics (`metrics`)
 
 Settings for exporting metrics in Prometheus format. Configured via YAML only.
 
@@ -285,9 +293,76 @@ Settings for exporting metrics in Prometheus format. Configured via YAML only.
 
 ### Configuration Example
 
-See [`config.example.yaml`](./config.example.yaml).
+Example: [`config.example.yaml`](./config.example.yaml)
 
-### Environment Variables 📦
+```yaml
+detectClientIp:
+  headers: ["x-forwarded-for", "cf-connecting-ip"]
+
+jailManager:
+  storage: file
+  driverConfig:
+    filePath: ./data/blocked_ips.json
+    locker:
+      enabled: true
+      config:
+        retries: 3
+  filterRules: # Renamed from 'rules' in README example for clarity in this doc
+    - id: static-blacklist-url
+      type: "static"
+      enabled: true
+      linkUrl: "https://example.com/blacklist.json"
+      updateInterval: 60000
+
+    - id: composite-admin-bruteforce
+      type: "composite"
+      enabled: true
+      keys: ["ip"] # Ban based on IP
+      conditions:
+        - field: "url"
+          method: "equals"
+          values: ["/admin"]
+      limit: 10
+      period: 60 # 10 requests per 60 seconds
+      duration: 300 # Ban for 300 seconds (5 minutes)
+      escalationRate: 1.5
+
+api:
+  enabled: true
+  auth:
+    enabled: true
+    username: "admin"
+    password: "admin"
+
+proxy:
+  enabled: true
+  host: "http://your-app:8080"
+
+log:
+  level: 'info'
+  transport: 'console'
+
+metrics:
+  enabled: true
+  path: '/metrics'
+
+geoip:
+  countryPath: './GeoLite2-Country.mmdb'
+  cityPath: './GeoLite2-City.mmdb'
+
+# Whitelist/Blacklist example (part of wafMiddleware config node)
+wafMiddleware:
+  mode: 'normal' # or 'audit'
+  whitelist:
+    enabled: true
+    ips: ["192.168.1.1", "10.0.0.0/16"]
+    countries: ["DE"]
+  blacklist:
+    enabled: false
+
+```
+
+### 📦 Environment Variables
 
 While most configuration is done via the YAML file, a few environment variables can influence the WAF's behavior, how it loads its configuration, or external integrations:
 
@@ -443,7 +518,7 @@ Rules are defined in the `jailManager.filterRules` section of the configuration 
     *   `duration`: Ban duration (in seconds) when `limit` is exceeded.
     *   `escalationRate`: Ban escalation factor (e.g., 1.5). If 1.0, there is no escalation.
 
-### Geolocation Detection 🌍
+### 🌍 Geolocation Detection
 
 *   WAF uses local MaxMind GeoIP2 databases (`.mmdb`) to determine the country and city based on an IP address.
 *   Database paths are set in the `geoip` configuration section (YAML only).
@@ -454,7 +529,7 @@ Rules are defined in the `jailManager.filterRules` section of the configuration 
 
 ---
 
-## 🔌 API Reference
+## 🧰 API Reference
 
 If enabled (`api.enabled: true`), the WAF provides a REST API for management.
 
@@ -468,38 +543,41 @@ All endpoints are prefixed with `/waf`
 
 #### `GET /waf/healthz`
 
-*   **Description:** Checks the service health.
-*   **Auth:** Not required.
-*   **Response:**
-    *   `200 OK`: Response body `Hello from WAF server!`.
+*   **Method:** `GET`
+*   **Endpoint:** `/waf/healthz`
+*   **Auth:** `❌` (No)
+*   **Description:** Checks the service health. Returns `Hello from WAF server!`.
 
 #### `GET /waf/jail-manager/baned-users`
 
+*   **Method:** `GET`
+*   **Endpoint:** `/waf/jail-manager/baned-users`
+*   **Auth:** `✅` (Yes, if enabled)
 *   **Description:** Get the list of all active bans from `JailManager`.
-*   **Auth:** Required (if enabled).
-*   **Response:**
-    *   `200 OK`:
-        ```json
-        [
-          {
-            "ip": "1.2.3.4",
-            "unbanTime": 1678886400000, // Timestamp in ms
-            "escalationCount": 0,
-            "metadata": {
-              "ruleId": "composite-login-bruteforce",
-              "country": "US",
-              "city": "Mountain View",
-              "requestIds": "req-1,req-2"
-            }
-          },
-          // ...
-        ]
-        ```
+*   **Response (`200 OK`):**
+    ```json
+    [
+      {
+        "ip": "1.2.3.4",
+        "unbanTime": 1678886400000, // Timestamp in ms
+        "escalationCount": 0,
+        "metadata": {
+          "ruleId": "composite-login-bruteforce",
+          "country": "US",
+          "city": "Mountain View",
+          "requestIds": "req-1,req-2"
+        }
+      },
+      // ...
+    ]
+    ```
 
 #### `DELETE /waf/jail-manager/baned-users`
 
+*   **Method:** `DELETE`
+*   **Endpoint:** `/waf/jail-manager/baned-users`
+*   **Auth:** `✅` (Yes, if enabled)
 *   **Description:** Remove the ban for a specific IP address.
-*   **Auth:** Required (if enabled).
 *   **Request Body (JSON):**
     ```json
     {
@@ -507,15 +585,9 @@ All endpoints are prefixed with `/waf`
     }
     ```
 *   **Response:**
-    *   `200 OK`: Ban successfully removed.
-        ```json
-        { "status": "ok" }
-        ```
-    *   `404 Not Found`: IP address not found in the banned list.
-        ```json
-        { "status": "error", "message": "User not found" }
-        ```
-    *   `400 Bad Request`: Invalid request (e.g., missing `ip` field).
+    *   `200 OK`: Ban successfully removed. `{"status": "ok"}`
+    *   `404 Not Found`: IP address not found. `{"status": "error", "message": "User not found"}`
+    *   `400 Bad Request`: Invalid request.
 
 ---
 
@@ -570,15 +642,20 @@ The dashboard will show graphs for blocked requests, rule triggers, number of IP
 
 ## 🧑‍💻 Development
 
+### Prerequisites
+
+*   NodeJS v22
+*   GeoIP Database (`.mmdb` files)
+
 ### Environment Setup
 
 1.  Install [Requirements](#requirements) (Node.js, npm).
 2.  Clone the repository.
 3.  Install dependencies: `npm install`.
 4.  Create `config.yaml` from `config.example.yaml`.
-5.  Download GeoIP databases and place them in the project root (or configure paths in `config.yaml`).
+5.  Download and store `GeoLite2-Country.mmdb` and `GeoLite2-City.mmdb` in project root (or configure paths in `config.yaml`). You can use test files from [P3TERX/GeoLite.mmdb](https://github.com/P3TERX/GeoLite.mmdb).
 
-### Running Tests ✅
+### ✅ Running Tests
 
 *   **Run all tests:**
     ```bash
@@ -627,7 +704,7 @@ node dist/main.js
 *   **`.github/`**: GitHub Actions configuration (CI/CD), Dependabot.
 *   **Root folder:** Configuration files, `README.md`, `LICENSE`, etc.
 
-### Contribution Guide (TODO) 🤝
+### 🤝 Contribution Guide (TODO)
 
 *   Code style (ESLint, Prettier - configured).
 *   Process for adding new rules.
@@ -639,3 +716,16 @@ node dist/main.js
 ## 📄 License
 
 This project is licensed under the [GNU License](./LICENSE).
+
+---
+
+## 📊 Dependencies
+
+*   `express`
+*   `http-proxy-middleware`
+*   `maxmind` (or the specific library used for GeoIP lookup)
+*   `js-yaml`
+*   `@elementary-lab/logger`
+*   `proper-lockfile`
+*   `prom-client`
+*   (Potentially others from `package.json`)
