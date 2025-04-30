@@ -72,7 +72,6 @@
     *   [Building the Project](#building-the-project)
     *   [Project Structure](#project-structure)
     *   [🤝 Contribution Guide (TODO)](#-contribution-guide-todo)
-    *   [🔭 TODO / Ideas](#-todo--ideas)
 10. [📄 License](#-license)
 11. [📊 Dependencies](#-dependencies)
 
