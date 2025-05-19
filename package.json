@@ -27,7 +27,7 @@
     "express-http-auth": "^0.1.0",
     "express-prom-bundle": "^8.0.0",
     "express-requests-logger": "^4.0.1",
-    "http-proxy-middleware": "^3.0.3",
+    "http-proxy-middleware": "^3.0.5",
     "ip": "^2.0.1",
     "js-yaml": "^4.1.0",
     "module-alias": "^2.2.3",
