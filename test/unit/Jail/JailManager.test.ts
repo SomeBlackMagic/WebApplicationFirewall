@@ -12,14 +12,21 @@ jest.useFakeTimers();
 jest.spyOn(global, 'setInterval');
 
 describe('Jail Manager', () => {
-    let jailManager: JailManager;
+    let jailManager: JailManager | JailManager & {
+        jestLoadBlockedIPsLoaded(data: BanInfo[]): void;
+    };
+
 
     beforeEach(() => {
-        jailManager = new JailManager({
+        jailManager = new class extends JailManager {
+            public jestLoadBlockedIPsLoaded(data: BanInfo[]) {
+                this.blockedIPsLoaded = Object.fromEntries(data.map((item => { return [item.ip, item] })));
+            }
+        }({
             enabled: true,
             filterRules: [],
-            syncInterval: 5000,
-            syncAlways: true
+            // syncInterval: 5000,
+            // syncAlways: true
         });
     });
 
@@ -235,7 +242,7 @@ describe('Jail Manager', () => {
 
      //Testing blockIp method
      describe('blockIp', () => {
-         it('should block an IP successfully', async () => {
+         it('should block an new IP successfully', async () => {
              const ip = '192.168.1.3';
              const duration = 60000;
              const escalationRate = 1.0;
@@ -251,6 +258,34 @@ describe('Jail Manager', () => {
              expect(blockedIp.metadata).toEqual({country, city});
 
          });
+         it('should block an old IP successfully', async () => {
+             const ip = '192.168.1.3';
+             const duration = 60000;
+             const escalationRate = 1.0;
+             const country = 'USA';
+             const city = 'San Francisco';
+             (jailManager as any).jestLoadBlockedIPsLoaded([
+                 {
+                     ip: "192.168.1.3",
+                     unbanTime: Date.now(),
+                     escalationCount: 0,
+                     metadata: {
+                         country: "USA",
+                         city: "San Francisco"
+                     }
+                 }
+             ]);
+             await jailManager.blockIp(ip, duration, escalationRate, {country, city});
+
+             const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
+
+             expect(blockedIp).not.toBeFalsy();
+             expect(blockedIp.ip).toBe(ip);
+             expect(blockedIp.metadata).toEqual({country, city});
+             expect(blockedIp.escalationCount).toEqual(1);
+
+         });
+
      });
 
      describe('reCalculateStorageMetrics', () => {
@@ -300,7 +335,7 @@ describe('Jail Manager', () => {
              };
 
              // @ts-ignore
-             jailManager.blockedIPs = blockedIPs;
+             jailManager.blockedIPsLoaded = blockedIPs;
 
              // Call the method
              jailManager.reCalculateStorageMetrics();

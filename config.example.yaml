@@ -48,10 +48,12 @@ wafMiddleware:
 
 jailManager:
   enabled: false # OPTIONAL
-  # syncInterval: 5000 # OPTIONAL
-  # syncAlways: true # OPTIONAL
+  # loadInterval: 10 # OPTIONAL seconds Default: 30
+  # flushInterval: 10 # OPTIONAL seconds Default: 30
+  # flushAlways: true # OPTIONAL Default false
+
   storage:
-    driver: file # or memory, if not set - default value - memory
+    driver: file # or operator or memory, if not set - default value - memory
     driverConfig: # OPTIONAL for some drivers
       filePath: data/blocked_ips.json
       locker:
@@ -79,7 +81,7 @@ jailManager:
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
           check: # If any condition is met - check is considered successfully
             - method: 'equals'
-              values: [ "/admin.php", "phpinfo.php", ".env" ]
+              values: [ "/admin.php", "/phpinfo.php", "/.env" ]
 
             - method: 'regexp'
               values: [ "/wp-(admin|include|content)/i" ]
@@ -104,7 +106,7 @@ jailManager:
         - field: 'url' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
           check: # If any condition is met - check is considered successfully
             - method: 'equals'
-              values: [ "/admin.php", "phpinfo.php", ".env" ]
+              values: [ "/admin.php", "/phpinfo.php", "/.env" ]
 
             - method: 'regexp'
               values: [ "/wp-(admin|include|content)/i" ]

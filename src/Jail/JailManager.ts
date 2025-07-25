@@ -13,13 +13,17 @@ import {FlexibleRule, IFlexibleRuleConfig} from "@waf/Jail/Rules/FlexibleRule";
 import {AbstractRule, IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
 import * as promClient from "prom-client";
 import {Singleton} from "@waf/Utils/Singleton";
+import {IJailStorageOperatorConfig, JailStorageOperator} from "@waf/Jail/JailStorageOperator";
+import {SenderLoop} from "@waf/Utils/SenderLoop";
 
 export class JailManager extends Singleton<JailManager, []>{
     private readonly storeInterval: NodeJS.Timeout = null;
 
-    private blockedIPs: Record<string, BanInfo> = {}
+    protected blockedIPsLoaded: Record<string, BanInfo> = {}
 
-    private rules: AbstractRule[] = [];
+    protected blockedIPsAdded: Record<string, BanInfo> = {}
+
+    protected rules: AbstractRule[] = [];
 
     private metrics: Metric[] = [];
 
@@ -47,17 +51,15 @@ export class JailManager extends Singleton<JailManager, []>{
             this.metricsInstance = Metrics.get();
         }
 
-        this.storage.load().then((rawJailList) => {
-            this.blockedIPs = Object.fromEntries(rawJailList.map(item => [item.ip, item]))
-            this.logger.info('Loading ban list on boot', Object.keys(this.blockedIPs).length);
-        });
-        this.storeInterval = setInterval(() => {
-            this.syncDataWithStorage();
-        }, this.config?.syncInterval || 5000);
         this.loadRules();
         if(this.metricsInstance.isEnabled()) {
             this.bootstrapMetrics();
         }
+    }
+    public async bootstrap() {
+        await this.loadDataFromStorage();
+        await this.startLoadingLoop(this.config?.loadInterval * 1000 || 30000);
+        await this.startFlushingLoop(this.config?.flushInterval * 1000 || 30000);
     }
 
     public onStop() {
@@ -70,6 +72,8 @@ export class JailManager extends Singleton<JailManager, []>{
         switch (driverName) {
             case 'file':
                 return new JailStorageFile(driverConfig);
+            case 'operator':
+                return new JailStorageOperator(driverConfig);
             case 'memory':
                 this.logger.warn('Use InMemory storage');
                 return new JailStorageMemory(driverConfig);
@@ -156,21 +160,28 @@ export class JailManager extends Singleton<JailManager, []>{
     }
 
     public async blockIp(ip: string, duration: number = 60, escalationRate: number = 1.0, metadata: IBanInfoMetaData): Promise<void> {
-        if (!Object.prototype.hasOwnProperty.call(this.blockedIPs, ip)) {
-            this.blockedIPs[ip] = {
-                ip: ip,
-                escalationCount: 0,
-                metadata: metadata,
-                unbanTime: 0
+        if (!Object.prototype.hasOwnProperty.call(this.blockedIPsAdded, ip)) {
+            if(Object.prototype.hasOwnProperty.call(this.blockedIPsLoaded, ip)) {
+                this.blockedIPsAdded[ip] = Object.assign({}, this.blockedIPsLoaded[ip]) // copy object form loaded
+                this.blockedIPsAdded[ip].escalationCount++
+            } else {
+                this.blockedIPsAdded[ip] = {
+                    ip,
+                    unbanTime: 0,
+                    escalationCount: 0,
+                    metadata
+                }
             }
         } else {
-            this.blockedIPs[ip].escalationCount++
+            this.blockedIPsAdded[ip].escalationCount++
         }
-        const unbanTime = Date.now() + this.calculateBanTime(this.blockedIPs[ip].escalationCount, duration, escalationRate) * 1000;
-        this.blockedIPs[ip]['unbanTime'] = unbanTime;
-        this.logger.info(`IP ${ip} blocked until ${new Date(unbanTime).toISOString()}`, {escalationCount: this.blockedIPs[ip].escalationCount});
-        if(this.config?.syncAlways) {
-            await this.syncDataWithStorage();
+
+        this.blockedIPsAdded[ip].metadata = metadata;
+        const unbanTime = Date.now() + this.calculateBanTime(this.blockedIPsAdded[ip].escalationCount, duration, escalationRate) * 1000;
+        this.blockedIPsAdded[ip]['unbanTime'] = unbanTime;
+        this.logger.info(`IP ${ip} blocked until ${new Date(unbanTime).toISOString()}`, {escalationCount: this.blockedIPsAdded[ip].escalationCount});
+        if(this.config?.flushAlways) {
+            await this.flushDataToStorage();
         }
 
     }
@@ -181,20 +192,20 @@ export class JailManager extends Singleton<JailManager, []>{
 
 
     public getBlockedIp(ip: string): false | BanInfo {
-        return this.blockedIPs[ip] ?? false;
+        return this.blockedIPsAdded[ip] ?? ( this.blockedIPsLoaded[ip] ?? false );
     }
 
     public getAllBlockedIp() {
-        return Object.values(this.blockedIPs);
+        return Object.values(this.blockedIPsLoaded);
     }
 
 
     public deleteBlockedIp(ip: string): boolean {
-        const bannedUser: BanInfo | false = this.blockedIPs[ip] ?? false;
+        const bannedUser: BanInfo | false = this.blockedIPsLoaded[ip] ?? false;
         if (bannedUser === false) {
             return false;
         }
-        this.blockedIPs[ip].unbanTime = Date.now() - 1;
+        this.blockedIPsLoaded[ip].unbanTime = Date.now() - 1;
 
         return true
     }
@@ -220,19 +231,53 @@ export class JailManager extends Singleton<JailManager, []>{
         this.logger.info('Loaded ' + this.rules.length + ' rules');
     }
 
-    private async syncDataWithStorage() {
-        this.reCalculateStorageMetrics();
-        const rawJailList = await this.storage.load()
-        const gropedJails = Object.fromEntries(rawJailList.map(item => [item.ip, item]));
-        this.blockedIPs = this.mergeBanLists(this.blockedIPs, gropedJails)
-        await this.storage.save(Object.values(this.blockedIPs))
+    protected async startLoadingLoop(loadInterval: number|undefined) {
+        new SenderLoop().start(async () => {
+            await this.loadDataFromStorage();
+            return true;
+        }, loadInterval);
     }
 
+    protected async loadDataFromStorage() {
+        const rawJailList:BanInfo[] = await this.storage.load().catch(e => {
+            this.logger.error('Can not load data from storage', e);
+            return Object.values(this.blockedIPsLoaded);
+        });
+        this.logger.info('Loaded ' + rawJailList.length + ' ips from storage');
+        this.blockedIPsLoaded = Object.fromEntries(rawJailList.map(item => [item.ip, item]))
+        this.reCalculateStorageMetrics();
+    }
+
+    protected async startFlushingLoop(flushingInterval: number|undefined) {
+        new SenderLoop().start(async () => {
+            await this.flushDataToStorage();
+            return true;
+        }, flushingInterval);
+    }
+
+    protected async flushDataToStorage() {
+        const sendData = Object.values(this.blockedIPsAdded);
+        if(sendData.length === 0) {
+            return;
+        }
+        this.logger.info('Flushing ' + sendData.length + ' ips to storage');
+        await this.storage.save(sendData, Object.values(this.blockedIPsLoaded))
+            .then(() => {
+                sendData.forEach(item => {
+                    delete this.blockedIPsAdded[item.ip];
+                    this.blockedIPsLoaded[item.ip] = item;
+                })
+            })
+            .catch((e) => {
+                this.logger.error('Can not sand data to storage', e);
+            });
+        this.reCalculateStorageMetrics();
+    }
 
     public reCalculateStorageMetrics() {
         const counts = new Map<string, number>();
 
-        for (const entry of Object.values(this.blockedIPs)) {
+        for (const entry of Object.values(this.blockedIPsLoaded)) {
             const { ruleId, country, city } = entry.metadata;
             const isBlocked = Date.now() < entry.unbanTime;
             const key = `${ruleId}|||${country}|||${city}|||${isBlocked}|||${entry.escalationCount}`;
@@ -243,28 +288,11 @@ export class JailManager extends Singleton<JailManager, []>{
             this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked, escalationCount}, value);
         }
     }
-    private mergeBanLists(
-        list1: Record<string, BanInfo>,
-        list2: Record<string, BanInfo>
-    ): Record<string, BanInfo> {
-        const mergedList: Record<string, BanInfo> = {...list1};
 
-        for (const ip in list2) {
-            if (mergedList[ip]) {
-                // If IP already exists, we update the data if UNBANTIME is more
-                if (list2[ip].unbanTime > mergedList[ip].unbanTime) {
-                    mergedList[ip] = {...mergedList[ip], ...list2[ip]};
-                    this.logger.info('Update ban time for ' + list2[ip].ip, new Date(list2[ip].unbanTime).toISOString());
-                }
-            } else {
-                // If IP is not, add to the list
-                mergedList[ip] = list2[ip];
-                this.logger.info('Add new ip observed from storage', list2[ip]);
-            }
-        }
-
-        return mergedList;
+    protected delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
+
 
 }
 
@@ -272,10 +300,11 @@ export interface IJailManagerConfig {
     enabled: boolean;
     storage?: {
         driver?: string;
-        driverConfig?: IJailStorageFileConfig;
+        driverConfig?: IJailStorageFileConfig | IJailStorageOperatorConfig;
     },
-    syncInterval?: number;
-    syncAlways?: boolean;
+    loadInterval?: number;
+    flushInterval?: number;
+    flushAlways?: boolean;
     filterRules: IAbstractRuleConfig[]
 }
 
