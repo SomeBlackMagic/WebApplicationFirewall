@@ -187,7 +187,7 @@ export class WAFMiddleware {
     public detectClientCity(req: Request, ip: string): string {
         switch (this.config?.detectClientCity?.method) {
             case 'header':
-                return req.header(this.config.detectClientCountry.header);
+                return req.header(this.config.detectClientCountry.header) || 'not-detected';
             case 'geoip':
                 return this.geoIP2.getCity(ip)?.city?.names?.en || 'not-detected';
             default:
