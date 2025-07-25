@@ -33,7 +33,7 @@ process.on('SIGUSR1', exitHandler.bind(null, {exit: true, code:'SIGUSR1'}));
 process.on('SIGUSR2', exitHandler.bind(null, {exit: true, code:'SIGUSR2'}));
 process.on('SIGTERM', exitHandler.bind(null, {exit: true, code:'SIGTERM'}));
 
-console.log('Start Application:', env('APP_VERSION', 'dev-dirty'));
+console.log('Start Application:', '__DEV_DIRTY__');
 
 interface AppConfig {
     proxy: {
@@ -59,7 +59,7 @@ interface AppConfig {
 
     Metrics.build(appConfig.metrics, app).bootstrap();
 
-    JailManager.build(appConfig.jailManager);
+    await JailManager.build(appConfig.jailManager).bootstrap();
 
     Whitelist.buildInstance(appConfig?.wafMiddleware?.whitelist ?? {})
     Blacklist.buildInstance(appConfig?.wafMiddleware?.blacklist ?? {})
@@ -138,8 +138,8 @@ function uncaughtRejectionHandler(reason: unknown, promise: Promise<unknown>) {
     Log.instance.error('Uncaught Rejection', reason);
     (async () => {
         try {
-            Sentry.get().captureException(reason);
-            await Sentry.get().getClient().flush();
+            Sentry.get()?.captureException(reason);
+            await Sentry.get()?.getClient()?.flush();
             JailManager.get().onStop();
         } catch (e: Error | any) {
             console.error(e);

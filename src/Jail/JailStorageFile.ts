@@ -52,13 +52,31 @@ export class JailStorageFile implements JailStorageInterface {
         return fileData;
     }
 
-    public async save(data: BanInfo[], unlockAfterSave: boolean): Promise<boolean> {
-        await fsPromises.writeFile(this.config.filePath, JSON.stringify(data, null, 2));
+    public async save(newItems: BanInfo[], oldItems: BanInfo[], unlockAfterSave: boolean): Promise<boolean> {
+        const mergedItems = this.mergeBanLists(oldItems, newItems);
+
+        await fsPromises.writeFile(this.config.filePath, JSON.stringify(mergedItems, null, 2));
         if(unlockAfterSave && this.lock !== null) {
             await this.lock();
             this.lock = null;
         }
-        return Promise.resolve(undefined);
+        return Promise.resolve(true);
+    }
+
+    private mergeBanLists(oldItems: BanInfo[], newItems: BanInfo[]): BanInfo[] {
+        // Create a MAP of old elements for a quick search by IP
+        const mergedMap = new Map<string, BanInfo>();
+
+        // Добавляем все старые элементы в Map
+        oldItems.forEach(item => {
+            mergedMap.set(item.ip, item);
+        });
+
+        newItems.forEach(item => {
+            mergedMap.set(item.ip, item);
+        });
+
+        return Array.from(mergedMap.values());
     }
 
 }

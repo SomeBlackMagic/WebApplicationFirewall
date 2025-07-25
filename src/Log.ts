@@ -1,10 +1,10 @@
 
 import {LogLevel} from "@elementary-lab/logger/src/Types";
 import {Logger} from "@elementary-lab/logger/src/Logger";
-import {ConsoleTarget} from "@elementary-lab/logger/src/Targets/ConsoleTarget";
 import {CategoryExtension} from "@elementary-lab/logger/src/Extensions/CategoryExtension";
 import {AbstractTarget} from "@elementary-lab/logger/src/Targets/AbstractTarget";
 import {env, envBoolean, envNumber} from "@waf/Utils/Env";
+import {StdTarget} from "@elementary-lab/logger/src/Targets/StdTarget";
 
 
 export class Log {
@@ -33,7 +33,7 @@ export class Log {
     public constructor(targets?: AbstractTarget[]) {
         if(!targets) {
             targets = [
-                new ConsoleTarget({
+                new StdTarget({
                     enabled: true,
                     include: env('WAF_LOG_CATEGORY_INCLUDE', '') ? env('WAF_LOG_CATEGORY_INCLUDE', '').split(',') : [],
                     exclude: env('WAF_LOG_CATEGORY_EXCLUDE', '') ? env('WAF_LOG_CATEGORY_EXCLUDE', '').split(',') : [],
@@ -55,6 +55,41 @@ export class Log {
             traceLevel: 0,
             flushByTimeInterval: envNumber('WAF_LOG_FLUSH_INTERVAL', 1000, 2)
         })
+
+        console.log = (...args: unknown[]) => {
+            // @ts-ignore
+            this.info(args[0].replace(/[\r\n]+/g, '') as string, '', 'vendor')
+        };
+
+        console.info = (...args: unknown[]) => {
+            // @ts-ignore
+            this.info(args[0].replace(/[\r\n]+/g, '') as string, '', 'vendor')
+        };
+
+        console.warn = (...args: unknown[]) => {
+            // @ts-ignore
+            this.warn(args[0].replace(/[\r\n]+/g, '') as string, '', 'vendor')
+        };
+
+        console.error = (...args: unknown[]) => {
+            switch (typeof args[0]) {
+                case 'object':
+                    this.error('', args[0], 'vendor')
+                    break;
+                case  'string':
+                    this.error(args[0].replace(/[\r\n]+/g, '') as string, '', 'vendor')
+                    break;
+
+                default:
+
+            }
+
+        };
+
+        console.debug = (...args: unknown[]) => {
+            // @ts-ignore
+            this.debug(args[0].replace(/[\r\n]+/g, '') as string, '', 'vendor')
+        };
     }
 
     public withCategory(categoryName: string): CategoryExtension {
