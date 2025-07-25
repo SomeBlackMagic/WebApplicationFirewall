@@ -132,28 +132,43 @@ export class WAFMiddleware {
         res.send(body);
     }
 
-// ----------------------------
-// Function for obtaining a real IP client
-// ----------------------------
-    public detectClientIp(req: Request) {
-        if (this.config.detectClientIp.headers.length > 0) {
-            for (const header of this.config.detectClientIp.headers) {
-                if (typeof req.headers[header] !== "undefined") {
-                    return req.headers[header];
-                }
-            }
-        }
+    // ----------------------------
+    // Function for obtaining a real IP client
+    // ----------------------------
+    protected readonly realIPHeadersList = [
+        'x-original-forwarded-for',
+        'x-original-real-ip',
+        'x-client-ip',
+        'x-forwarded',
+        'x-remote-ip',
+        'x-remote-addr',
+        'x-proxyuser-ip',
+        'true-client-ip',
+        'x-real-ip',
+        'x-forwarded-for',
+        'x-forwarded',
+        'x-cluster-client-ip',
+        'forwarded-for',
+        'forwarded',
+        'x-client-ip',
+        'client-ip',
+        'x-forwarded-for-ip',
+    ]
 
-        // If there is a X-Forwarded-FR, we return the first IP from the list
-        const forwarded = req.headers['x-forwarded-for'];
-        if (forwarded) {
-            // @ts-ignore
-            const ips = forwarded.split(',').map(ip => ip.trim());
-            if (ips.length) {
-                return ips[0];
+    public detectClientIp(req: Request) {
+        for (const header of [...this.config.detectClientIp.headers, ...this.realIPHeadersList]) {
+            if (
+                typeof req.headers[header] !== "undefined" &&
+                req.headers[header] !== ''
+            ) {
+                return this.fetchFirstIpFromString(req.headers[header] as string);
             }
         }
         return req.ip;
+    }
+
+    private fetchFirstIpFromString(ip: string): string {
+        return ip.split(',')[0]?.trim();
     }
 
     public detectClientCountry(req: Request, ip: string): string {

@@ -177,11 +177,22 @@ describe('WAFMiddleware', () => {
     describe('detectClientIp', () => {
         let middleware;
         beforeEach(() => {
-            middleware = new WAFMiddleware({detectClientIp: {headers: ['x-real-ip']}});
+            middleware = new WAFMiddleware({});
         });
 
 
         it('should return the IP from headers specified in config', () => {
+            const req = {
+                headers: {
+                    'x-real-ip': '192.168.1.1, 192.168.1.2',
+                },
+                ip: '127.0.0.1',
+            };
+            const clientIp = middleware.detectClientIp(req as unknown as Request);
+            expect(clientIp).toBe('192.168.1.1');
+        });
+
+        it('should return the IP from headers specified in config 1', () => {
             const req = {
                 headers: {
                     'x-real-ip': '192.168.1.1',
@@ -191,6 +202,8 @@ describe('WAFMiddleware', () => {
             const clientIp = middleware.detectClientIp(req as unknown as Request);
             expect(clientIp).toBe('192.168.1.1');
         });
+
+
 
         it('should return the first IP from x-forwarded-for header', () => {
             const req = {
