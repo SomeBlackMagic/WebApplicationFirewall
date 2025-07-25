@@ -176,7 +176,7 @@ export class WAFMiddleware {
             case 'header':
                 return req.header(this.config.detectClientCountry.header) || 'not-detected';
             case 'geoip':
-                return this.geoIP2.getCountry(ip)?.country?.names?.en || 'not-detected';
+                return this.geoIP2.getCountry(ip)?.country?.isoCode || 'not-detected';
             default:
                 this.log.error('This method of detection country is not supported. Available methods: geoip, header. Default: geoip.');
                 return 'not-detected';
