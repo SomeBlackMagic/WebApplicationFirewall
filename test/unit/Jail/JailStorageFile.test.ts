@@ -72,7 +72,7 @@ describe('JailStorageFile test', () => {
             }
         }];
 
-        await obj.save(data, true);
+        await obj.save([], data, true);
         expect(writeFile).toHaveBeenCalled();
     });
 
