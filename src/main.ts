@@ -49,7 +49,7 @@ interface AppConfig {
 
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>()
-    Sentry.build(appConfig.sentry, env('APP_VERSION', 'dev-dirty'));
+    Sentry.build(appConfig.sentry, "__DEV_DIRTY__");
     await GeoIP2.build().init();
 
     const app = express();

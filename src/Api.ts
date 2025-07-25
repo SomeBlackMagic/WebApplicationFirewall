@@ -23,6 +23,10 @@ export class Api {
 
         this.webApp.get('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.getBannedUsers.bind(this));
         this.webApp.delete('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.deleteBannedUsers.bind(this));
+
+        // Kubernetes health and readiness checks (without authentication)
+        this.webApp.get('/waf/health/liveness', this.livenessProbe.bind(this));
+        this.webApp.get('/waf/health/readiness', this.readinessProbe.bind(this));
     }
 
 
@@ -43,6 +47,31 @@ export class Api {
         const result = this.jailManager.deleteBlockedIp(req.body.ip);
         res.type('json').send(JSON.stringify(result));
     }
+
+    /**
+     * Kubernetes liveness probe method
+     * Checks if the application is running and responsive
+     */
+    public livenessProbe(req: Request, res: Response) {
+        res.status(200).json({
+            status: 'ok',
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    /**
+     * Kubernetes readiness probe method
+     * Checks if the application is ready to receive traffic
+     */
+    public readinessProbe(req: Request, res: Response) {
+        // Here you can add dependency checks (database, external services, etc.)
+        // For example, just returning a ready status
+        res.status(200).json({
+            status: 'ready',
+            timestamp: new Date().toISOString()
+        });
+    }
+
 }
 
 export interface IApiConfig {
