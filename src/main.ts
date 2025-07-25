@@ -33,7 +33,7 @@ process.on('SIGUSR1', exitHandler.bind(null, {exit: true, code:'SIGUSR1'}));
 process.on('SIGUSR2', exitHandler.bind(null, {exit: true, code:'SIGUSR2'}));
 process.on('SIGTERM', exitHandler.bind(null, {exit: true, code:'SIGTERM'}));
 
-console.log('Start Application:', env('APP_VERSION', 'dev-dirty'));
+console.log('Start Application:', '__DEV_DIRTY__');
 
 interface AppConfig {
     proxy: {
