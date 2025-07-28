@@ -14,4 +14,6 @@ ARG BUILD_REVISION
 
 RUN sed -i -e "s#__DEV_DIRTY__#${BUILD_VERSION}-${BUILD_REVISION}#g" src/main.ts
 
-CMD ["--require", "ts-node/register", "src/main.ts"]
+ENTRYPOINT []
+
+CMD ["/nodejs/bin/node", "--require", "ts-node/register", "src/main.ts"]

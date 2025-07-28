@@ -28,10 +28,9 @@ COPY --from=busybox:1.35.0-uclibc /bin/tar /bin/tar
 
 WORKDIR /app
 
-ARG APP_VERSION
-ENV APP_VERSION=${APP_VERSION}
-
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/dist/ /app
 
-CMD ["--enable-source-maps", "/app/main.js"]
+ENTRYPOINT []
+
+CMD ["/nodejs/bin/node", "--enable-source-maps", "/app/main.js"]

@@ -56,6 +56,7 @@ export class JailManager extends Singleton<JailManager, []>{
             this.bootstrapMetrics();
         }
     }
+
     public async bootstrap() {
         await this.loadDataFromStorage();
         await this.startLoadingLoop(this.config?.loadInterval * 1000 || 30000);
@@ -100,12 +101,6 @@ export class JailManager extends Singleton<JailManager, []>{
             labelNames: ['country', 'city', 'ruleId'],
             registers: [this.metricsInstance.getRegisters()]
         });
-        this.metrics['storage_all_ips'] = new promClient.Counter({
-            name: 'waf_jail_storage_all_ips',
-            help: 'Count of users who rejected and banned because of rule',
-            labelNames: ['country', 'city', 'ruleId'],
-            registers: [this.metricsInstance.getRegisters()]
-        });
         this.metrics['storage_data'] = new promClient.Gauge({
             name: 'waf_jail_storage_data',
             help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
@@ -115,7 +110,7 @@ export class JailManager extends Singleton<JailManager, []>{
     }
 
 
-    public async check(clientIp: string, country: string, city: string, req: Request, requestId: string, res: Response): Promise<boolean> {
+    public async check(clientIp: string, country: string, city: string, req: Request, requestId: string): Promise<boolean> {
         if(this.config.enabled === false) {
             this.logger.trace('JailManager skip by disabled');
             return false;
@@ -126,7 +121,7 @@ export class JailManager extends Singleton<JailManager, []>{
         if (blockedUser !== false) {
             if (blockedUser.unbanTime > Date.now()) {
                 this.metrics['blocked']?.inc({country, city});
-                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, blockedUser.metadata?.country, blockedUser.metadata?.city]);
+                this.logger.trace('Request from baned IP rejected', [blockedUser.ip, country, city]);
                 return true;
             }
         }
@@ -225,10 +220,10 @@ export class JailManager extends Singleton<JailManager, []>{
                     break;
 
                 default:
-                    throw new Error('Can not found observer or rule type - ' + ruleItem.type)
+                    throw new Error('Can not found observer for rule type - ' + ruleItem.type)
             }
         }
-        this.logger.info('Loaded ' + this.rules.length + ' rules');
+        this.logger.info('Loaded ' + this.rules.length + ' filter rules');
     }
 
     protected async startLoadingLoop(loadInterval: number|undefined) {
@@ -245,7 +240,6 @@ export class JailManager extends Singleton<JailManager, []>{
         });
         this.logger.info('Loaded ' + rawJailList.length + ' ips from storage');
         this.blockedIPsLoaded = Object.fromEntries(rawJailList.map(item => [item.ip, item]))
-        this.reCalculateStorageMetrics();
     }
 
     protected async startFlushingLoop(flushingInterval: number|undefined) {
@@ -271,26 +265,6 @@ export class JailManager extends Singleton<JailManager, []>{
             .catch((e) => {
                 this.logger.error('Can not sand data to storage', e);
             });
-        this.reCalculateStorageMetrics();
-    }
-
-    public reCalculateStorageMetrics() {
-        const counts = new Map<string, number>();
-
-        for (const entry of Object.values(this.blockedIPsLoaded)) {
-            const { ruleId, country, city } = entry.metadata;
-            const isBlocked = Date.now() < entry.unbanTime;
-            const key = `${ruleId}|||${country}|||${city}|||${isBlocked}|||${entry.escalationCount}`;
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-        for (const [key, value] of counts.entries()) {
-            const [ruleId, country, city, isBlocked, escalationCount] = key.split('|||');
-            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked, escalationCount}, value);
-        }
-    }
-
-    protected delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
 

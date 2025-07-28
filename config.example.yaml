@@ -19,6 +19,10 @@ wafMiddleware:
   #vthat would otherwise be dropped by policies. Default value audit
   mode: normal # or audit
 
+  #bannedResponse:
+  #  httpCode: 429 # OPTIONAL Default: 429
+  #  body: '' # OPTIONAL Default: JSON object with error text
+
   whitelist:
     ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL
     ipSubnet: [ '192.168.0.0/22', '10.0.0.0/22' ] # OPTIONAL
@@ -32,7 +36,7 @@ wafMiddleware:
     geoCity: [ 'Lviv' ] # OPTIONAL
 
   detectClientIp:
-    headers: ['fastly-client-ip', 'cf-connecting-ip', 'x-original-forwarded-for', ]
+    headers: ['fastly-client-ip', 'cf-connecting-ip', 'x-original-forwarded-for']
 
   detectClientCountry:
     method: header
