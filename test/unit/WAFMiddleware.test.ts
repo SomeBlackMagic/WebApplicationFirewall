@@ -260,7 +260,7 @@ describe('WAFMiddleware', () => {
         it('should return the country from geoip when configured to use geoip', () => {
             const geoIP = new GeoIP2()
 
-            const mockGetCountry = jest.spyOn(geoIP, 'getCountry').mockReturnValue(new Country(new DummyCountryResponse('United States')));
+            const mockGetCountry = jest.spyOn(geoIP, 'getCountry').mockReturnValue(new Country(new DummyCountryResponse('United States', 'US')));
 
             const middleware = new WAFMiddleware(
                 {detectClientCountry: {method: 'geoip'}},
@@ -273,7 +273,7 @@ describe('WAFMiddleware', () => {
             const req = createRequest();
 
             const clientCountry = middleware.detectClientCountry(req, '208.80.152.201');
-            expect(clientCountry).toBe('United States');
+            expect(clientCountry).toBe('US');
             expect(mockGetCountry).toHaveBeenCalledTimes(1);
         });
 

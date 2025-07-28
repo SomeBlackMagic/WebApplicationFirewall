@@ -19,22 +19,26 @@ export class SenderLoop {
         }
     }
 
-    private async scheduleNext(callback: { (): Promise<boolean> }, delay: number): Promise<void> {
+    private scheduleNext(callback: { (): Promise<boolean> }, delay: number): void {
         if (!this.isRunning) {
             return;
         }
 
-        try {
-            const shouldContinue = await callback();
-            if (!shouldContinue) {
-                this.stop();
+        this.timeoutId = setTimeout(async () => {
+            if (!this.isRunning) {
                 return;
             }
-        } catch (error) {
-            console.error('Error in callback:', error);
-        }
 
-        this.timeoutId = setTimeout(() => {
+            try {
+                const shouldContinue = await callback();
+                if (!shouldContinue) {
+                    this.stop();
+                    return;
+                }
+            } catch (error) {
+                console.error('Error in callback:', error);
+            }
+
             this.scheduleNext(callback, delay);
         }, delay);
     }

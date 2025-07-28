@@ -14,6 +14,12 @@ export class WAFMiddleware {
 
     private metrics: Metric[] = [];
 
+
+    private readonly defaultBannedResponse: { message: string, error: string} = {
+        "message": "You have been banned for too many attempts or suspicious activity.",
+        "error": "Banned"
+    }
+
     public constructor(
         private readonly config: IWAFMiddlewareConfig,
         private readonly jailManager?: JailManager,
@@ -25,6 +31,10 @@ export class WAFMiddleware {
     ) {
         this.config = Object.assign({
             mode: 'audit',
+            bannedResponse: {
+                httpCode: 429,
+                body: JSON.stringify(this.defaultBannedResponse),
+            },
             detectClientIp: {
                 headers: []
             },
@@ -111,10 +121,10 @@ export class WAFMiddleware {
                 return;
             }
 
-            if(await this.jailManager.check(clientIp, country, city, req, requestId, res)) {
+            if(await this.jailManager.check(clientIp, country, city, req, requestId)) {
                 this.metrics['jail_reject']?.inc({country, city});
                 this.log.trace('Request from jail IP rejected', [clientIp, country, city]);
-                this.createRejectResponse(429, '', res, next);
+                this.createRejectResponse(this.config.bannedResponse.httpCode, this.config.bannedResponse.body, res, next);
                 return;
             }
 
@@ -206,18 +216,26 @@ export interface IWAFMiddlewareConfig {
     mode?: "normal" | "audit",
     whitelist?: IWhitelistConfig,
     blacklist?: IBlacklistConfig,
+
+    bannedResponse?: {
+        httpCode?: number,
+        body?: string,
+    },
+
     detectClientIp?: {
         headers?: string[];
-    }
+    },
 
     detectClientCountry?: {
         method: 'header' | 'geoip'
         header?: string;
-    }
+    },
+
     detectClientCity?: {
         method: 'header' | 'geoip'
         header?: string;
-    }
+    },
+
     detectClientRequestId?: {
         header?: string;
     }

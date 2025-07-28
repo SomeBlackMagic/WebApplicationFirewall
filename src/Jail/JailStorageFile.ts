@@ -5,22 +5,45 @@ import path from "node:path";
 import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
 import {BanInfo} from "@waf/Jail/JailManager";
 import {Log} from "@waf/Log";
+import * as promClient from "prom-client";
+import {Metric} from "prom-client";
+import {Metrics} from "@waf/Metrics/Metrics";
 
 export class JailStorageFile implements JailStorageInterface {
+
+    private metrics: Metric[] = [];
 
     private lock: () => Promise<void>|null;
 
     public constructor(
         private readonly config?: IJailStorageFileConfig,
+        private readonly metricsInstance?: Metrics,
         private readonly logger?: LoggerInterface
     ) {
         if(!this.config.filePath) {
             this.config.filePath = process.cwd() + '/data/blocked_ips.json'
         }
 
+        if(!metricsInstance) {
+            this.metricsInstance = Metrics.get();
+        }
+
         if (!logger) {
             this.logger = Log.instance.withCategory('app.Jail.JailStorageFile')
         }
+
+        if(this.metricsInstance.isEnabled()) {
+            this.bootstrapMetrics();
+        }
+    }
+
+    public bootstrapMetrics() {
+        this.metrics['storage_data'] = new promClient.Gauge({
+            name: 'waf_jail_storage_data',
+            help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
+            labelNames: ['country', 'city', 'ruleId', 'isBlocked', 'escalationCount'],
+            registers: [this.metricsInstance.getRegisters()]
+        });
     }
 
     public async load(isLock: boolean = false): Promise<BanInfo[]> {
@@ -48,7 +71,7 @@ export class JailStorageFile implements JailStorageInterface {
             this.logger.emergency('can not open file with jail IP:', err)
             fileData = [];
         }
-
+        this.reCalculateStorageMetrics(fileData)
         return fileData;
     }
 
@@ -77,6 +100,21 @@ export class JailStorageFile implements JailStorageInterface {
         });
 
         return Array.from(mergedMap.values());
+    }
+
+    protected reCalculateStorageMetrics(blockedIPsLoaded: BanInfo[] = []) {
+        const counts = new Map<string, number>();
+
+        for (const entry of Object.values(blockedIPsLoaded)) {
+            const { ruleId, country, city } = entry.metadata;
+            const isBlocked = Date.now() < entry.unbanTime;
+            const key = `${ruleId}|||${country}|||${city}|||${isBlocked}|||${entry.escalationCount}`;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
+        for (const [key, value] of counts.entries()) {
+            const [ruleId, country, city, isBlocked, escalationCount] = key.split('|||');
+            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked, escalationCount}, value);
+        }
     }
 
 }
