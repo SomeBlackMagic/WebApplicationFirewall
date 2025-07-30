@@ -21,7 +21,9 @@ wafMiddleware:
 
   #bannedResponse:
   #  httpCode: 429 # OPTIONAL Default: 429
-  #  body: '' # OPTIONAL Default: JSON object with error text
+  #  json: '' # OPTIONAL Default: JSON object with error text
+  #  html: '' # OPTIONAL
+  #  htmlLink: '' # OPTIONAL
 
   whitelist:
     ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL

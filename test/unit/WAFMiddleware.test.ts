@@ -1,4 +1,4 @@
-import {Request, Response} from 'express';
+import {Request} from 'express';
 import {JailManager} from "@waf/Jail/JailManager";
 import {WAFMiddleware} from "@waf/WAFMiddleware";
 import {GeoIP2} from "@waf/GeoIP2";
@@ -363,4 +363,3 @@ describe('WAFMiddleware', () => {
         });
     });
 });
-

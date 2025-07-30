@@ -9,16 +9,13 @@ import {Metrics} from "@waf/Metrics/Metrics";
 import {Metric} from "prom-client";
 import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
+import fs from "fs";
+import { merge } from 'lodash';
+
 
 export class WAFMiddleware {
 
     private metrics: Metric[] = [];
-
-
-    private readonly defaultBannedResponse: { message: string, error: string} = {
-        "message": "You have been banned for too many attempts or suspicious activity.",
-        "error": "Banned"
-    }
 
     public constructor(
         private readonly config: IWAFMiddlewareConfig,
@@ -29,11 +26,15 @@ export class WAFMiddleware {
         private readonly geoIP2?: GeoIP2,
         private readonly log?: LoggerInterface,
     ) {
-        this.config = Object.assign({
+        this.config = merge({
             mode: 'audit',
             bannedResponse: {
                 httpCode: 429,
-                body: JSON.stringify(this.defaultBannedResponse),
+                json: JSON.stringify({
+                    "message": "You have been banned for too many attempts or suspicious activity.",
+                    "error": "Banned"
+                }),
+                html: "<h1>You have been banned for too many attempts or suspicious activity.</h1>",
             },
             detectClientIp: {
                 headers: []
@@ -77,8 +78,35 @@ export class WAFMiddleware {
         if(this.metricsInstance.isEnabled()) {
             this.bootstrapMetrics();
         }
+
+        if(this.config.bannedResponse?.htmlLink) {
+            this.bootstrapBannedResponse();
+        }
     }
 
+    public bootstrapBannedResponse() {
+        this.log.info('Loading banned response HTML from', this.config.bannedResponse.htmlLink);
+
+        const url = this.config.bannedResponse.htmlLink;
+        if (url.startsWith('http://') || url.startsWith('https://')) {
+            // Load from remote URL
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    this.config.bannedResponse.html = html;
+                })
+                .catch(error => {
+                    this.log.error('Failed to load banned response HTML from URL', error);
+                });
+        } else {
+            // Load from filesystem
+            try {
+                this.config.bannedResponse.html = fs.readFileSync(url, 'utf8');
+            } catch (error) {
+                this.log.error('Failed to load banned response HTML from file', error);
+            }
+        }
+    }
 
     public bootstrapMetrics() {
         this.metrics['whitelist'] = new promClient.Counter({
@@ -117,14 +145,14 @@ export class WAFMiddleware {
             if(this.blacklist.check(clientIp, country, city)) {
                 this.metrics['blacklist']?.inc({country, city});
                 this.log.trace('Request from blacklist  IP rejected', [clientIp, country, city]);
-                this.createRejectResponse(429, '', res, next);
+                this.createRejectResponse(this.config.bannedResponse.httpCode, req, res, next);
                 return;
             }
 
             if(await this.jailManager.check(clientIp, country, city, req, requestId)) {
                 this.metrics['jail_reject']?.inc({country, city});
                 this.log.trace('Request from jail IP rejected', [clientIp, country, city]);
-                this.createRejectResponse(this.config.bannedResponse.httpCode, this.config.bannedResponse.body, res, next);
+                this.createRejectResponse(this.config.bannedResponse.httpCode, req, res, next);
                 return;
             }
 
@@ -132,14 +160,21 @@ export class WAFMiddleware {
         };
     }
 
-    private createRejectResponse(code: number, body: string, res: Response, next: NextFunction): Response|void {
+    private createRejectResponse(code: number, req: Request, res: Response, next: NextFunction): Response|void {
         if(this.config.mode == 'audit') {
             this.log.warn('The request was passed on to proxy server in audit mode');
             next();
             return;
         }
         res.status(code);
-        res.send(body);
+        const acceptsJson = req.accepts('json');
+        const acceptsHtml = req.accepts('html');
+
+        if (acceptsJson && !acceptsHtml) {
+            res.json(this.config.bannedResponse.json);
+        } else {
+            res.send(this.config.bannedResponse.html);
+        }
     }
 
     // ----------------------------
@@ -219,7 +254,9 @@ export interface IWAFMiddlewareConfig {
 
     bannedResponse?: {
         httpCode?: number,
-        body?: string,
+        json: string,
+        html?: string,
+        htmlLink?: string,
     },
 
     detectClientIp?: {
