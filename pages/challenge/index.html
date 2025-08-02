@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>__TITTLE__</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #0d6efd;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100">
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-4 text-center">
+                    <h1 class="card-title h3 text-dark mb-3">Challenge Page</h1>
+                    <p class="card-text text-muted mb-4">Please wait until we check your browser. This security check
+                        helps to protect the site from automated attacks.</p>
+
+                    <div class="spinner mx-auto mb-3"></div>
+
+                    <div class="progress mb-3" style="height: 8px;">
+                        <div class="progress-bar" role="progressbar" id="progressBar" style="width: 0%"></div>
+                    </div>
+
+                    <div id="status" class="text-muted small mb-3">verification...</div>
+
+                    <div id="errorMessage" class="d-none">
+                        <div class="alert alert-danger" role="alert">
+                            It was not possible to perform the audit. Please make sure that JavaScript has been included
+                            in your browser and is allowed Cooks.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+
+    /**
+     * Generation of unsuitable browser evidence
+     * @returns {Object} Object with evidence of a real browser
+     */
+    function generateUnfakeableProofs () {
+        const proofs = {}
+
+        // 1. Canvas fingerprint with temporary calculations
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        proofs.canvasProof = generateCanvasProof()
+
+        // 2. WebGL proof with rendering
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        proofs.webglProof = generateWebGLProof()
+
+        // 3. Timing attacks proof
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        proofs.timingProof = generateTimingProof()
+
+        // 4. Memory and performance proof
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        proofs.performanceProof = generatePerformanceProof()
+
+        // 5. CSS rendering proof
+        // eslint-disable-next-line @typescript-eslint/no-use-before-define
+        proofs.cssProof = generateCSSProof()
+
+        return proofs
+    }
+
+    /**
+     * Generates evidence based on Canvas
+     */
+    function generateCanvasProof () {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+
+        if (!ctx) return null
+
+        const startTime = performance.now()
+
+        // Create a complex image that requires real rendering
+        canvas.width = 200
+        canvas.height = 200
+
+        // Gradient
+        const gradient = ctx.createRadialGradient(100, 100, 0, 100, 100, 100)
+        gradient.addColorStop(0, 'red')
+        gradient.addColorStop(0.5, 'yellow')
+        gradient.addColorStop(1, 'blue')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, 200, 200)
+
+        // Text with various fonts
+        ctx.font = '12px Arial'
+        ctx.fillStyle = 'black'
+        ctx.fillText('Test 123 АБВ 中文', 10, 30)
+
+        // Complex shapes
+        ctx.beginPath()
+        for (let i = 0; i < 50; i++) {
+            ctx.lineTo(Math.sin(i * 0.1) * 50 + 100, Math.cos(i * 0.1) * 50 + 100)
+        }
+        ctx.stroke()
+
+        const renderTime = performance.now() - startTime
+        const imageData = canvas.toDataURL()
+
+        return {
+            hash: simpleHash(imageData),
+            renderTime: Math.round(renderTime * 1000), // microseconds
+            dataLength: imageData.length,
+            imagePreview: imageData.substring(0, 100) // The first 100 characters for verification
+        }
+    }
+
+    /**
+     * Generates proof based on WebGL
+     */
+    function generateWebGLProof () {
+        const canvas = document.createElement('canvas')
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+
+        if (!gl) return null
+
+        const startTime = performance.now()
+
+        // create shaders
+        const vertexShader = gl.createShader(gl.VERTEX_SHADER)
+        gl.shaderSource(vertexShader, `
+        attribute vec2 position;
+        varying vec2 vUv;
+        void main() {
+            vUv = position * 0.5 + 0.5;
+            gl_Position = vec4(position, 0.0, 1.0);
+        }
+    `)
+        gl.compileShader(vertexShader)
+
+        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
+        gl.shaderSource(fragmentShader, `
+        precision mediump float;
+        varying vec2 vUv;
+        uniform float time;
+        void main() {
+            vec2 p = vUv * 2.0 - 1.0;
+            float d = length(p);
+            float c = sin(d * 10.0 - time * 2.0) * 0.5 + 0.5;
+            gl_FragColor = vec4(c, c * 0.5, 1.0 - c, 1.0);
+        }
+    `)
+        gl.compileShader(fragmentShader)
+
+        // Create program
+        const program = gl.createProgram()
+        gl.attachShader(program, vertexShader)
+        gl.attachShader(program, fragmentShader)
+        gl.linkProgram(program)
+        gl.useProgram(program)
+
+        // Render frame
+        const timeLocation = gl.getUniformLocation(program, 'time')
+        gl.uniform1f(timeLocation, performance.now() * 0.001)
+
+        // Create buffer
+        const buffer = gl.createBuffer()
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+            -1, -1, 1, -1, -1, 1,
+            -1, 1, 1, -1, 1, 1
+        ]), gl.STATIC_DRAW)
+
+        const positionLocation = gl.getAttribLocation(program, 'position')
+        gl.enableVertexAttribArray(positionLocation)
+        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+        const renderTime = performance.now() - startTime
+
+        // Read pixels
+        const pixels = new Uint8Array(64 * 64 * 4)
+        gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+
+        return {
+            vendor: gl.getParameter(gl.VENDOR),
+            renderer: gl.getParameter(gl.RENDERER),
+            version: gl.getParameter(gl.VERSION),
+            renderTime: Math.round(renderTime * 1000),
+            pixelHash: simpleHash(Array.from(pixels).join(',').substring(0, 1000))
+        }
+    }
+
+    /**
+     * Generates proof based on timing
+     */
+    function generateTimingProof () {
+        const measurements = []
+
+        // We measure the accuracy of timers
+        for (let i = 0; i < 10; i++) {
+            const start = performance.now()
+
+            // Create a small load
+            let sum = 0
+            for (let j = 0; j < 1000; j++) {
+                sum += Math.sin(j) * Math.cos(j)
+            }
+
+            const duration = performance.now() - start
+            measurements.push({
+                iteration: i,
+                duration: Math.round(duration * 10000), // Tenth fractions of the microseconds
+                result: Math.round(sum * 1000)
+            })
+        }
+
+        // We analyze the stability of measurements
+        const durations = measurements.map(m => m.duration)
+        const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length
+        const variance = durations.reduce((sum, d) => sum + Math.pow(d - avgDuration, 2), 0) / durations.length
+
+        return {
+            measurements,
+            avgDuration: Math.round(avgDuration),
+            variance: Math.round(variance),
+            clockResolution: getClockResolution()
+        }
+    }
+
+    /**
+     * Determines the clock resolution
+     */
+    function getClockResolution () {
+        // Determine the timer resolution
+        let resolution = 0
+        let lastTime = performance.now()
+
+        for (let i = 0; i < 1000; i++) {
+            const currentTime = performance.now()
+            const diff = currentTime - lastTime
+            if (diff > 0 && (resolution === 0 || diff < resolution)) {
+                resolution = diff
+            }
+            lastTime = currentTime
+        }
+
+        return Math.round(resolution * 10000)
+    }
+
+    /**
+     * Generates evidence based on performance
+     */
+    function generatePerformanceProof () {
+        const startTime = performance.now()
+
+        // JavaScript performance test
+        const results = []
+
+        // Test 1: Object creation
+        let objTest = performance.now()
+        const objects = []
+        for (let i = 0; i < 10000; i++) {
+            objects.push({ id: i, value: Math.random() })
+        }
+        results.push({ test: 'object_creation', time: performance.now() - objTest })
+
+        // Test 2: Array sorting
+        let sortTest = performance.now()
+        objects.sort((a, b) => a.value - b.value)
+        results.push({ test: 'array_sort', time: performance.now() - sortTest })
+
+        // Test 3: Regular expressions
+        let regexTest = performance.now()
+        const text = 'This is a test string with numbers 123 and symbols !@#$%'
+        for (let i = 0; i < 1000; i++) {
+            /\b\d+\b/g.test(text)
+        }
+        results.push({ test: 'regex', time: performance.now() - regexTest })
+
+        // Information about memory (if available)
+        const memoryInfo = window.performance && window.performance.memory ? {
+            usedJSHeapSize: window.performance.memory.usedJSHeapSize,
+            totalJSHeapSize: window.performance.memory.totalJSHeapSize,
+            jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit
+        } : null
+
+        return {
+            results: results.map(r => ({
+                test: r.test,
+                time: Math.round(r.time * 1000)
+            })),
+            totalTime: Math.round((performance.now() - startTime) * 1000),
+            memoryInfo,
+            hardwareConcurrency: navigator.hardwareConcurrency || null
+        }
+    }
+
+    /**
+     * Generates evidence based on CSS
+     */
+    function generateCSSProof () {
+        // We create an invisible element for CSS testing
+        const testDiv = document.createElement('div')
+        testDiv.style.position = 'absolute'
+        testDiv.style.left = '-9999px'
+        testDiv.style.visibility = 'hidden'
+
+        // Using complex CSS rules
+        testDiv.innerHTML = `
+        <div style="transform: rotate(45deg) scale(1.5); filter: blur(2px) brightness(150%);">
+            <span style="font-family: 'Arial', sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Test</span>
+        </div>
+    `
+
+        document.body.appendChild(testDiv)
+
+        const startTime = performance.now()
+
+        // We measure the properties after rendering
+        const computedStyle = window.getComputedStyle(testDiv.firstElementChild)
+        const measurements = {
+            transformMatrix: computedStyle.transform,
+            filterEffects: computedStyle.filter,
+            computedWidth: testDiv.offsetWidth,
+            computedHeight: testDiv.offsetHeight,
+            renderTime: Math.round((performance.now() - startTime) * 1000)
+        }
+
+        document.body.removeChild(testDiv)
+
+        return measurements
+    }
+
+    /**
+     * Simple hash function for string
+     */
+    function simpleHash (str) {
+        let hash = 0
+        const sample = typeof str === 'string' ? str : String(str)
+        // Take no more than 10000 characters for speed
+        const processStr = sample.substring(0, 10000)
+
+        // Add timestamp to the hash calculation
+        const timestamp = Date.now()
+        const timestampedString = processStr + timestamp
+
+        for (let i = 0; i < timestampedString.length; i++) {
+            const char = timestampedString.charCodeAt(i)
+            hash = ((hash << 5) - hash) + char
+            hash = hash & hash // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(16)
+    }
+
+    /**
+     * Adds mathematical Challenge
+     */
+    function solveMathChallenge (problem) {
+        if (!problem) return null
+
+        // A simple mathematical task that is difficult to solve a script
+        let result = problem.seed
+        for (let i = 0; i < problem.iterations; i++) {
+            result = (result * problem.multiplier + problem.addend) % problem.modulus
+        }
+        return result
+    }
+
+    (function () {
+        let scriptLoaded = false
+
+        const challengeData = __CHALLENGE_DATA___
+        const cookieName = '__COOKIE__'
+
+        function loadFingerprintJS () {
+            if (scriptLoaded) return
+            scriptLoaded = true
+
+            const script = document.createElement('script')
+            script.src = 'https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js'
+            script.async = true
+            document.head.appendChild(script)
+            script.onload = () => {
+                initFingerprintJS()
+            }
+        }
+
+        function initFingerprintJS () {
+            const fpPromise = window.FingerprintJS.load()
+            fpPromise
+                .then(fp => fp.get())
+                .then(result => {
+                    const visitorId = result.visitorId
+                    const clientData = extractClientData(result.components)
+                    validateClient(visitorId, clientData)
+                })
+        }
+
+        function extractClientData (components) {
+            // Extract data from FingerprintJS components and add additional browser information
+            const data = {}
+
+            // Basic browser data
+            data.userAgent = navigator.userAgent
+            data.language = navigator.language || navigator.userLanguage
+            data.languages = navigator.languages || [data.language]
+            data.platform = navigator.platform
+            data.cookiesEnabled = navigator.cookieEnabled
+
+            // Screen data
+            data.screenResolution = {
+                width: screen.width,
+                height: screen.height,
+                colorDepth: screen.colorDepth,
+                pixelDepth: screen.pixelDepth
+            }
+
+            // Timezone offset
+            data.timezone = new Date().getTimezoneOffset()
+
+            // Data from FingerprintJS components
+            if (components) {
+                const canvas = components.canvas
+                if (canvas && canvas.value) {
+                    data.canvasFingerprint = canvas.value
+                }
+
+                const webgl = components.webgl
+                if (webgl && webgl.value) {
+                    data.webglVendor = webgl.value.vendor
+                    data.webglRenderer = webgl.value.renderer
+                }
+
+                const plugins = components.plugins
+                if (plugins && plugins.value) {
+                    data.plugins = plugins.value
+                }
+
+                const fonts = components.fonts
+                if (fonts && fonts.value) {
+                    data.fonts = fonts.value
+                }
+            }
+
+            // Additional security checks
+            data.webdriver = !!window.navigator.webdriver
+            data.extensions = getInstalledExtensions()
+
+            // Add unprofitable browser evidence
+            data.browserProofs = generateUnfakeableProofs()
+
+            // Temporary label for checking the generation speed
+            data.proofGenerationTime = performance.now()
+
+            return data
+        }
+
+        function getInstalledExtensions () {
+            // Attempt to detect installed browser extensions
+            const extensions = []
+
+            // Check for popular extensions via their CSS or JS
+            const extensionChecks = [
+                { name: 'AdBlock', check: () => !!document.querySelector('script[src*="adblock"]') },
+                { name: 'uBlock', check: () => !!window.uBlockOrigin },
+                { name: 'Ghostery', check: () => !!window.Ghostery }
+            ]
+
+            extensionChecks.forEach(ext => {
+                try {
+                    if (ext.check()) {
+                        extensions.push(ext.name)
+                    }
+                } catch (e) {
+                    // Ignore errors
+                }
+            })
+
+            return extensions
+        }
+
+        function setCookie (name, value, days) {
+            const date = new Date()
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000))
+            let expires = 'expires=' + date.toUTCString()
+            document.cookie = name + '=' + value + ';' + expires + ';path=/;SameSite=Lax'
+        }
+
+        function submitChallenge (fingerprint, data) {
+            // We solve a mathematical problem
+            const mathSolution = solveMathChallenge(challengeData)
+
+            const payload = {
+                fingerprint: fingerprint,
+                data: data,
+                challenge: {
+                    id: challengeData.id,
+                    solution: mathSolution,
+                    timestamp: Date.now()
+                }
+            }
+
+            const xhr = new XMLHttpRequest()
+            xhr.open('POST', '/__under_attack_challenge', true)
+            xhr.setRequestHeader('Content-Type', 'application/json')
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText)
+                        if (response.success) {
+                            setCookie(cookieName, response.token, 30)
+                            window.location.reload()
+                        } else {
+                            document.getElementById('errorMessage').classList.remove('d-none')
+                            document.getElementById('status').textContent = 'Verification failed'
+                        }
+                    } else {
+                        document.getElementById('errorMessage').classList.remove('d-none')
+                        document.getElementById('status').textContent = 'Server error'
+                    }
+                }
+            }
+            xhr.send(JSON.stringify(payload))
+        }
+
+        function updateProgress (percent) {
+            document.getElementById('progressBar').style.width = percent + '%'
+        }
+
+        function validateClient (fingerprint, data) {
+            updateProgress(30)
+            setTimeout(() => {
+                updateProgress(60)
+                setTimeout(() => {
+                    updateProgress(90)
+                    document.getElementById('status').textContent = 'Completing verification...'
+                    setTimeout(() => {
+                        updateProgress(100)
+                        submitChallenge(fingerprint, data)
+                    }, 500)
+                }, 500)
+            }, 500)
+        }
+
+        window.onload = function () {
+            loadFingerprintJS()
+        }
+    })()
+</script>
+</body>
+</html>
