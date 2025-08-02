@@ -1,22 +1,28 @@
 import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
 import {BanInfo} from "@waf/Jail/JailManager";
 import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import fetch from "@adobe/node-fetch-retry";
+import fetch, { RequestInitWithRetry } from "@adobe/node-fetch-retry";
 import {Log} from "@waf/Log";
+import {RequestInfo, Response} from "node-fetch";
 
 export class JailStorageOperator implements JailStorageInterface {
 
     public constructor(
         private readonly config: IJailStorageOperatorConfig,
+        private readonly fetchInstance?: (url: RequestInfo, init?: RequestInitWithRetry) => Promise<Response>,
+
         private readonly logger?: LoggerInterface
     ) {
         if (!logger) {
             this.logger = Log.instance.withCategory('app.Jail.JailStorageOperator')
         }
+        if(!this.fetchInstance) {
+            this.fetchInstance = fetch;
+        }
     }
 
     public async load(): Promise<BanInfo[]> {
-        return await fetch(this.config.apiHost + '/agent/banned/load?agentId=' + this.config.agentId, {
+        return await this.fetchInstance(this.config.apiHost + '/agent/banned/load?agentId=' + this.config.agentId, {
             method: 'GET',
             retryOptions: {
                 retryMaxDuration: 10000,
@@ -43,7 +49,7 @@ export class JailStorageOperator implements JailStorageInterface {
     }
 
     public async save(newItems: BanInfo[]): Promise<boolean> {
-        return await fetch(this.config.apiHost + '/agent/banned/update?agentId=' + this.config.agentId, {
+        return await this.fetchInstance(this.config.apiHost + '/agent/banned/update?agentId=' + this.config.agentId, {
             method: 'POST',
             body: JSON.stringify(newItems),
             headers: {

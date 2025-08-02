@@ -25,6 +25,55 @@ wafMiddleware:
   #  html: '' # OPTIONAL
   #  htmlLink: '' # OPTIONAL
 
+  # Under Attack Mode configuration
+  underAttack:
+    enabled: true # enable under attack mode
+    challengeDurationMs: 1800000 # 30 minutes token validity
+
+    conditions: []  # All conditions must be meat. If an array is empty - module work for all requests
+    #  - field: 'hostname' # or hostname, user-agent, header-<header-name>, geo-country, geo-city
+    #    check: # If any condition is met - check is considered successfully
+    #      - method: 'equals'
+    #        values: [ "foo-bar.com", "foo-bar.net", "foo-bar.io" ]
+
+    # Fingerprint checks settings
+    fingerprintChecks:
+      enabled: true
+      minScore: 70 # minimum score to pass (0-100)
+
+    # Bot detection settings
+    botDetection:
+      enabled: true
+      aiModel: "advanced" # basic or advanced (advanced recommended)
+      blockSuspiciousUA: true
+
+    # Tamper-proof check settings
+    advancedChecks:
+      enabled: true          # Enable advanced checks
+      challengeTimeout: 120  # Maximum time for a challenge in seconds
+      minBrowserProofScore: 60 # Minimum score for browser proofs (0-100)
+
+    # Challenge page settings
+    challengePage:
+      title: "Security Check"
+      # customHtmlPath: "/path/to/custom/challenge.html" # custom page
+
+    # URLs that don't require verification
+    skipUrls:
+      - "/__under_attack_challenge"
+      - "/favicon.ico"
+      - "/robots.txt"
+      - "/api/webhook/*" # wildcard support
+
+    # Cookie name for token
+    cookieName: "waf"
+
+    # Header for bypassing verification (for trusted services)
+    bypassHeader:
+      name: "X-Bypass-UnderAttack"
+      value: "secret-key-12345"
+
+
   whitelist:
     ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL
     ipSubnet: [ '192.168.0.0/22', '10.0.0.0/22' ] # OPTIONAL

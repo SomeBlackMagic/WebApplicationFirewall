@@ -13,6 +13,7 @@ import {Registry} from "prom-client";
 import {Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist} from "@waf/Static/Blacklist";
 import {createRequest, createResponse} from "node-mocks-http";
+import {UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
 
 
 describe('WAFMiddleware', () => {
@@ -30,6 +31,7 @@ describe('WAFMiddleware', () => {
         Whitelist.buildInstance({})
         Blacklist.buildInstance({})
         GeoIP2.build();
+        UnderAttackMiddleware.build({})
     });
 
     afterAll(() => {
@@ -37,6 +39,7 @@ describe('WAFMiddleware', () => {
         Whitelist.reset();
         Blacklist.reset();
         GeoIP2.reset();
+        UnderAttackMiddleware.reset()
     })
 
     describe('use', () => {
