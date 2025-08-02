@@ -29,7 +29,7 @@ COPY --from=busybox:1.35.0-uclibc /bin/tar /bin/tar
 WORKDIR /app
 
 COPY --from=builder /app/node_modules /app/node_modules
-COPY --from=builder /app/dist/ /app
+COPY --from=builder /app/dist /app
 
 ENTRYPOINT []
 
