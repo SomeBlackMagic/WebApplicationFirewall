@@ -9,8 +9,9 @@ import {Metrics} from "@waf/Metrics/Metrics";
 import {Metric} from "prom-client";
 import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
-import fs from "fs";
 import { merge } from 'lodash';
+import {IUnderAttackConfig, UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
+import {ContentLoader} from "@waf/Utils/ContentLoader";
 
 
 export class WAFMiddleware {
@@ -24,6 +25,7 @@ export class WAFMiddleware {
         private readonly blacklist?: Blacklist,
         private readonly metricsInstance?: Metrics,
         private readonly geoIP2?: GeoIP2,
+        private readonly underAttackMiddleware?: UnderAttackMiddleware,
         private readonly log?: LoggerInterface,
     ) {
         this.config = merge({
@@ -79,33 +81,21 @@ export class WAFMiddleware {
             this.bootstrapMetrics();
         }
 
+        if (!underAttackMiddleware) {
+            this.underAttackMiddleware = UnderAttackMiddleware.get();
+        }
+
         if(this.config.bannedResponse?.htmlLink) {
             this.bootstrapBannedResponse();
         }
+
     }
 
     public bootstrapBannedResponse() {
         this.log.info('Loading banned response HTML from', this.config.bannedResponse.htmlLink);
-
-        const url = this.config.bannedResponse.htmlLink;
-        if (url.startsWith('http://') || url.startsWith('https://')) {
-            // Load from remote URL
-            fetch(url)
-                .then(response => response.text())
-                .then(html => {
-                    this.config.bannedResponse.html = html;
-                })
-                .catch(error => {
-                    this.log.error('Failed to load banned response HTML from URL', error);
-                });
-        } else {
-            // Load from filesystem
-            try {
-                this.config.bannedResponse.html = fs.readFileSync(url, 'utf8');
-            } catch (error) {
-                this.log.error('Failed to load banned response HTML from file', error);
-            }
-        }
+         ContentLoader.load(this.config.bannedResponse.htmlLink).then((html: string) => {
+             this.config.bannedResponse.html = html
+        });
     }
 
     public bootstrapMetrics() {
@@ -136,6 +126,7 @@ export class WAFMiddleware {
             const city = this.detectClientCity(req, clientIp);
             const requestId = this.detectRequestId(req);
 
+
             if(this.whitelist.check(clientIp, country, city)) {
                 this.metrics['whitelist']?.inc({country, city});
                 next();
@@ -146,6 +137,10 @@ export class WAFMiddleware {
                 this.metrics['blacklist']?.inc({country, city});
                 this.log.trace('Request from blacklist  IP rejected', [clientIp, country, city]);
                 this.createRejectResponse(this.config.bannedResponse.httpCode, req, res, next);
+                return;
+            }
+
+            if(!await this.underAttackMiddleware.middleware(req, res, next, clientIp, country, city)) {
                 return;
             }
 
@@ -198,7 +193,7 @@ export class WAFMiddleware {
         'x-client-ip',
         'client-ip',
         'x-forwarded-for-ip',
-    ]
+    ];
 
     public detectClientIp(req: Request) {
         for (const header of [...this.config.detectClientIp.headers, ...this.realIPHeadersList]) {
@@ -232,14 +227,13 @@ export class WAFMiddleware {
     public detectClientCity(req: Request, ip: string): string {
         switch (this.config?.detectClientCity?.method) {
             case 'header':
-                return req.header(this.config.detectClientCountry.header) || 'not-detected';
+                return req.header(this.config.detectClientCity.header) || 'not-detected';
             case 'geoip':
                 return this.geoIP2.getCity(ip)?.city?.names?.en || 'not-detected';
             default:
                 this.log.error('This method of detection city is not supported. Available methods: geoip, header. Default: geoip.');
                 return 'not-detected';
         }
-
     }
 
     public detectRequestId(req: Request) {
@@ -251,6 +245,7 @@ export interface IWAFMiddlewareConfig {
     mode?: "normal" | "audit",
     whitelist?: IWhitelistConfig,
     blacklist?: IBlacklistConfig,
+    underAttack?: IUnderAttackConfig,
 
     bannedResponse?: {
         httpCode?: number,

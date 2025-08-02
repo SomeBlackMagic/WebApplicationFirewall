@@ -44,3 +44,4 @@ test/Helpers/*.js
 test/Helpers/*.js.map
 bin
 .run
+**/*.min.html
