@@ -90,7 +90,7 @@ export class JailStorageFile implements JailStorageInterface {
         // Create a MAP of old elements for a quick search by IP
         const mergedMap = new Map<string, BanInfo>();
 
-        // Добавляем все старые элементы в Map
+        // Add all old elements to the Map
         oldItems.forEach(item => {
             mergedMap.set(item.ip, item);
         });
