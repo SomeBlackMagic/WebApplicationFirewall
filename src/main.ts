@@ -9,12 +9,13 @@ import {ConfigLoader} from "@waf/ConfigLoader";
 import {GeoIP2} from "@waf/GeoIP2";
 import {env, envBoolean} from "@waf/Utils/Env";
 import {Log} from "@waf/Log";
-
+import cookieParser from 'cookie-parser';
 import sourceMapSupport from 'source-map-support'
 import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
 import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
 import {ISentryConfig, Sentry} from "@waf/Sentry";
+import {UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
 sourceMapSupport.install()
 
 
@@ -47,12 +48,14 @@ interface AppConfig {
 
 }
 
+
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>()
     Sentry.build(appConfig.sentry, "__DEV_DIRTY__");
     await GeoIP2.build().init();
 
     const app = express();
+    app.use(cookieParser())
     app.disable('x-powered-by');
 
     const api = new Api(appConfig.api, app);
@@ -63,6 +66,7 @@ interface AppConfig {
 
     Whitelist.buildInstance(appConfig?.wafMiddleware?.whitelist ?? {})
     Blacklist.buildInstance(appConfig?.wafMiddleware?.blacklist ?? {})
+    UnderAttackMiddleware.build(appConfig?.wafMiddleware?.underAttack ?? {})
 
     api.bootstrap();
 
