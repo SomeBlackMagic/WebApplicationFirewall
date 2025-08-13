@@ -3,9 +3,15 @@
 import {Request} from 'express';
 import {BotDetector, IBotDetectorConfig} from "@waf/UnderAttack/BotDetector";
 import {IClientFingerprint} from "@waf/UnderAttack/FingerprintValidator";
+import {Registry} from "prom-client";
+import {MetricsHelper} from "@test/Helpers/MetricsHelper";
+import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
 
 describe('BotDetector', () => {
+    let metricRegister: Registry;
     let botDetector: BotDetector;
+    let underAttackMetrics: UnderAttackMetrics;
+
     const mockConfig: IBotDetectorConfig = {
         enabled: true,
         aiModel: 'basic',
@@ -17,7 +23,9 @@ describe('BotDetector', () => {
     };
 
     beforeEach(() => {
-        botDetector = new BotDetector(mockConfig);
+        metricRegister = new Registry();
+        underAttackMetrics = new UnderAttackMetrics(MetricsHelper.buildMetrics(metricRegister));
+        botDetector = new BotDetector(mockConfig, underAttackMetrics);
         jest.clearAllMocks();
     });
 
@@ -32,7 +40,7 @@ describe('BotDetector', () => {
             headers: {},
         } as unknown as Request;
 
-        expect(botDetector.detect(mockRequest, {}, '127.0.0.1')).toBe(true);
+        expect(botDetector.detect(mockRequest, {requestId: ''}, '127.0.0.1')).toBe(true);
     });
 
     it('should not detect a bot if detection is disabled', () => {
@@ -42,9 +50,9 @@ describe('BotDetector', () => {
             headers: {},
         } as unknown as Request;
 
-        botDetector = new BotDetector({...mockConfig, enabled: false});
+        botDetector = new BotDetector({...mockConfig, enabled: false}, underAttackMetrics);
 
-        expect(botDetector.detect(mockRequest, {}, '127.0.0.1')).toBe(false);
+        expect(botDetector.detect(mockRequest, {requestId: ''}, '127.0.0.1')).toBe(false);
     });
 
     it('should record challenge start timestamp correctly', () => {
@@ -252,25 +260,42 @@ describe('BotDetector', () => {
 
     it('should detect bots based on client data', () => {
         // Lack of cookie support
-        const mockData1: IClientFingerprint = { cookiesEnabled: false };
+        const mockData1: IClientFingerprint = {
+            cookiesEnabled: false,
+            requestId: ''
+        };
         expect(botDetector['checkClientData'](mockData1)).toBe(true);
 
         // Headless browser
-        const mockData2: IClientFingerprint = { webdriver: true };
+        const mockData2: IClientFingerprint = {
+            webdriver: true,
+            requestId: ''
+        };
         expect(botDetector['checkClientData'](mockData2)).toBe(true);
 
         // Too fast proof generation
-        const mockData3: IClientFingerprint = { browserProofs: {}, proofGenerationTime: 30 };
+        const mockData3: IClientFingerprint = {
+            browserProofs: {}, proofGenerationTime: 30,
+            requestId: ''
+        };
         expect(botDetector['checkClientData'](mockData3)).toBe(true);
 
         // Normal user data
         const mockData4: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }, { name: 'flash' }],
+            plugins: [{name: 'pdf'}, {name: 'flash'}],
             extensions: ['adblock', 'dark-mode'],
             webglRenderer: 'NVIDIA GeForce',
-            browserProofs: { canvasProof: { renderTime: 200, dataLength: 1000, hash: 'abcdef', imagePreview: 'data:image/png;base64,' } },
-            proofGenerationTime: 200
+            browserProofs: {
+                canvasProof: {
+                    renderTime: 200,
+                    dataLength: 1000,
+                    hash: 'abcdef',
+                    imagePreview: 'data:image/png;base64,'
+                }
+            },
+            proofGenerationTime: 200,
+            requestId: ''
         };
         expect(botDetector['checkClientData'](mockData4)).toBe(false);
     });
@@ -306,7 +331,7 @@ describe('BotDetector', () => {
         botDetector['requestHistory'].set(clientIP, mockRequests);
 
         // Test with 'advanced' model
-        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'});
+        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'}, underAttackMetrics);
 
         // Test with missing client data
         expect(botDetector['calculateSuspicionScore'](mockRequest, clientIP, null)).toBeGreaterThan(0.5);
@@ -314,7 +339,7 @@ describe('BotDetector', () => {
         // Test with suspicious client data
         const suspiciousData: IClientFingerprint = {
             cookiesEnabled: false,
-            // Missing browserProofs
+            requestId: ''
         };
         const score = botDetector['calculateSuspicionScore'](mockRequest, clientIP, suspiciousData);
         expect(score).toBeGreaterThan(0.8); // Should give a high score
@@ -417,11 +442,19 @@ describe('BotDetector', () => {
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
             webglRenderer: 'NVIDIA GeForce RTX',
-            browserProofs: { canvasProof: { renderTime: 300, dataLength: 2000, hash: 'abcdef', imagePreview: 'data:image' } },
-            proofGenerationTime: 500
+            browserProofs: {
+                canvasProof: {
+                    renderTime: 300,
+                    dataLength: 2000,
+                    hash: 'abcdef',
+                    imagePreview: 'data:image'
+                }
+            },
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, '192.168.1.1')).toBe(true);
@@ -451,14 +484,26 @@ describe('BotDetector', () => {
 
         const legitimateClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }],
+            plugins: [{name: 'Chrome PDF Plugin'}, {name: 'Chrome PDF Viewer'}],
             extensions: ['AdBlock', 'LastPass', 'Grammarly'],
             webglRenderer: 'ANGLE (NVIDIA GeForce RTX 3070 Direct3D11 vs_5_0)',
             browserProofs: {
-                canvasProof: { renderTime: 250, dataLength: 5000, hash: 'abcdef123456', imagePreview: 'data:image/png;base64,' },
-                webglProof: { vendor: 'NVIDIA', renderer: 'GeForce RTX', version: 'WebGL 2.0', renderTime: 180, pixelHash: 'wxyz7890' }
+                canvasProof: {
+                    renderTime: 250,
+                    dataLength: 5000,
+                    hash: 'abcdef123456',
+                    imagePreview: 'data:image/png;base64,'
+                },
+                webglProof: {
+                    vendor: 'NVIDIA',
+                    renderer: 'GeForce RTX',
+                    version: 'WebGL 2.0',
+                    renderTime: 180,
+                    pixelHash: 'wxyz7890'
+                }
             },
-            proofGenerationTime: 430
+            proofGenerationTime: 430,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, legitimateClientData, '192.168.1.2')).toBe(false);
@@ -490,9 +535,10 @@ describe('BotDetector', () => {
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
-            proofGenerationTime: 500
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, clientIP)).toBe(true);
@@ -522,9 +568,10 @@ describe('BotDetector', () => {
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
-            proofGenerationTime: 500
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, '192.168.1.4')).toBe(true);
@@ -553,14 +600,15 @@ describe('BotDetector', () => {
             },
         } as unknown as Request;
 
-        // Мокаем проверку времени прохождения задачи
+        // Moking the test of the time of the task
         jest.spyOn(botDetector as any, 'checkChallengeTimingAnomaly').mockReturnValue(true);
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
-            proofGenerationTime: 500
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, clientIP)).toBe(true);
@@ -589,19 +637,20 @@ describe('BotDetector', () => {
             },
         } as unknown as Request;
 
-        // Мокаем нормальное поведение для других проверок
+        // We mock normal behavior for other checks
         jest.spyOn(botDetector as any, 'isKnownBot').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'detectSuspiciousPatterns').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkAutomationHeaders').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkChallengeTimingAnomaly').mockReturnValue(false);
 
-        // Создаем подозрительные данные клиента (webdriver: true)
+        // Creating suspicious customer data (Webdriver: True)
         const suspiciousClientData: IClientFingerprint = {
             cookiesEnabled: true,
             plugins: [],
             extensions: [],
-            webdriver: true, // Признак автоматизированного браузера
-            proofGenerationTime: 500
+            webdriver: true,
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, suspiciousClientData, clientIP)).toBe(true);
@@ -628,24 +677,22 @@ describe('BotDetector', () => {
             },
         } as unknown as Request;
 
-        // Устанавливаем продвинутую модель
-        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'});
+        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'}, underAttackMetrics);
 
-        // Мокаем нормальное поведение для других проверок
         jest.spyOn(botDetector as any, 'isKnownBot').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'detectSuspiciousPatterns').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkAutomationHeaders').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkChallengeTimingAnomaly').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkClientData').mockReturnValue(false);
 
-        // Мокаем высокий подозрительный скор
         jest.spyOn(botDetector as any, 'calculateSuspicionScore').mockReturnValue(0.9);
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
-            proofGenerationTime: 500
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, clientIP)).toBe(true);
@@ -674,24 +721,22 @@ describe('BotDetector', () => {
             },
         } as unknown as Request;
 
-        // Устанавливаем продвинутую модель
-        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'});
+        botDetector = new BotDetector({...mockConfig, aiModel: 'advanced'}, underAttackMetrics);
 
-        // Мокаем нормальное поведение для всех проверок
         jest.spyOn(botDetector as any, 'isKnownBot').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'detectSuspiciousPatterns').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkAutomationHeaders').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkChallengeTimingAnomaly').mockReturnValue(false);
         jest.spyOn(botDetector as any, 'checkClientData').mockReturnValue(false);
 
-        // Мокаем низкий подозрительный скор
         jest.spyOn(botDetector as any, 'calculateSuspicionScore').mockReturnValue(0.5);
 
         const normalClientData: IClientFingerprint = {
             cookiesEnabled: true,
-            plugins: [{ name: 'pdf' }],
+            plugins: [{name: 'pdf'}],
             extensions: ['adblock'],
-            proofGenerationTime: 500
+            proofGenerationTime: 500,
+            requestId: ''
         };
 
         expect(botDetector.detect(mockRequest, normalClientData, clientIP)).toBe(false);

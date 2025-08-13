@@ -35,7 +35,7 @@ describe("UnderAttackMiddleware", () => {
         },
         skipUrls: [],
         cookieName: "test_token",
-        bypassHeader: {name: "x-waf-bypass", value: "test-bypass"},
+        bypassHeaders: [{name: "x-waf-bypass", value: "test-bypass"}],
     };
 
     const createMiddlewareInstance = (config: Partial<IUnderAttackConfig> = {}) =>
@@ -55,7 +55,7 @@ describe("UnderAttackMiddleware", () => {
         const res = {} as Response;
         const next = jest.fn() as NextFunction;
 
-        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago");
+        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago", '123123123');
         expect(result).toBe(true);
     });
 
@@ -73,7 +73,7 @@ describe("UnderAttackMiddleware", () => {
         const res = {} as Response;
         const next = jest.fn() as NextFunction;
 
-        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago");
+        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago", '123123123');
         expect(result).toBe(true);
         // expect(mockMetrics.incrementBypassCount).toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe("UnderAttackMiddleware", () => {
         const res = {} as Response;
         const next = jest.fn() as NextFunction;
 
-        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago");
+        const result = await middleware.middleware(req, res, next, "127.0.0.1", "US", "Chicago", '123123123');
         expect(result).toBe(true);
         expect(mockMetrics.incrementValidTokenCount).toHaveBeenCalled();
     });

@@ -3,6 +3,7 @@ import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {Log} from '@waf/Log';
 import {IClientFingerprint} from '@waf/UnderAttack/FingerprintValidator';
 import {merge} from "lodash";
+import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
 
 /**
  * Interface for storing a request pattern
@@ -29,6 +30,7 @@ export interface IBotDetectorConfig {
     };
 }
 
+
 export class BotDetector {
     private knownBotPatterns: RegExp[];
     private suspiciousUAPatterns: RegExp[];
@@ -38,7 +40,8 @@ export class BotDetector {
 
     constructor(
         private readonly config: IBotDetectorConfig,
-        private readonly log?: LoggerInterface
+        private readonly metrics?: UnderAttackMetrics,
+        private readonly log?: LoggerInterface,
     ) {
         this.config = merge<object|IBotDetectorConfig, IBotDetectorConfig>({
             historyCleanup: {
@@ -49,6 +52,10 @@ export class BotDetector {
 
         if(!log) {
             this.log = Log.instance.withCategory('app.UnderAttack.BotDetector');
+        }
+
+        if(!metrics) {
+            this.metrics = UnderAttackMetrics.get();
         }
 
 
@@ -90,6 +97,9 @@ export class BotDetector {
             return false; // If bot detection is disabled, consider all requests as human
         }
 
+        // Increment bot detection counter
+        this.metrics.incrementBotDetectionTotal();
+
         const userAgent = req.header('user-agent') || '';
 
         // Record request in history
@@ -98,38 +108,48 @@ export class BotDetector {
         // 1. Check User-Agent for known bots
         if (this.isKnownBot(userAgent)) {
             this.log.warn('Detected known attack bot', {ip: clientIp, userAgent});
+            this.metrics.incrementKnownBotDetection();
             return true;
         }
 
         // 2. Check behavioral patterns
         if (this.detectSuspiciousPatterns(clientIp)) {
             this.log.warn('Detected suspicious request patterns', {ip: clientIp});
+            this.metrics.incrementSuspiciousPatternsDetection();
             return true;
         }
 
         // 3. Check headers for automation signs
         if (this.checkAutomationHeaders(req)) {
             this.log.warn('Detected automation headers', {ip: clientIp});
+            this.metrics.incrementAutomationHeadersDetection();
             return true;
         }
 
         // 4. Check challenge execution time (if any)
         if (this.checkChallengeTimingAnomaly(clientIp)) {
             this.log.warn('Detected challenge timing anomaly', {ip: clientIp});
+            this.metrics.incrementTimingAnomalyDetection();
             return true;
         }
 
         // 5. Check based on JavaScript data from browser
         if (data !== null && this.checkClientData(data)) {
             this.log.debug('Detected bot from client data', {data});
+            this.metrics.incrementClientDataDetection();
             return true;
         }
 
         // 6. Advanced heuristics
         if (this.config.aiModel === 'advanced') {
             const suspicionScore = this.calculateSuspicionScore(req, clientIp, data);
+
+            // Record suspicion score
+            this.metrics.recordSuspicionScore(suspicionScore);
+
             if (suspicionScore > 0.8) {
                 this.log.warn('High suspicion score detected', {ip: clientIp, score: suspicionScore});
+                this.metrics.incrementHighSuspicionDetection();
                 return true;
             }
         }

@@ -1,12 +1,22 @@
 // BrowserProofValidator.test.ts
 
 import {BrowserProofValidator, IBrowserProofs} from "@waf/UnderAttack/BrowserProofValidator";
+import {Logger} from "@elementary-lab/logger/src/Logger";
+import {Log} from "@waf/Log";
+import {Registry} from "prom-client";
+import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
+import {Metrics} from "@waf/Metrics/Metrics";
+import {MetricsHelper} from "@test/Helpers/MetricsHelper";
 
 describe('BrowserProofValidator', () => {
     let browserProofValidator: BrowserProofValidator;
+    let metricRegister: Registry;
+
 
     beforeEach(() => {
-        browserProofValidator = new BrowserProofValidator();
+        metricRegister = new Registry();
+        const moduleMetric = new UnderAttackMetrics(MetricsHelper.buildMetrics(metricRegister))
+        browserProofValidator = new BrowserProofValidator(moduleMetric);
     });
 
     // it('should return 100 when all proofs are valid', () => {
@@ -49,7 +59,7 @@ describe('BrowserProofValidator', () => {
     // });
 
     it('should return 0 when no proofs are provided', () => {
-        const result = browserProofValidator.validateBrowserProofs({});
+        const result = browserProofValidator.validateBrowserProofs({}, '', '');
         expect(result).toBe(30);
     });
 
