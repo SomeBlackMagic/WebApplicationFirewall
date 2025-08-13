@@ -7,6 +7,7 @@ import {createRequest, createResponse} from "node-mocks-http";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 import {Registry} from "prom-client";
 import {Metrics} from "@waf/Metrics/Metrics";
+import {MetricsHelper} from "@test/Helpers/MetricsHelper";
 
 jest.useFakeTimers();
 jest.spyOn(global, 'setInterval');
@@ -35,10 +36,7 @@ describe('Jail Manager', () => {
         let defaultMetrics: Metrics;
 
         beforeEach(() => {
-            defaultMetrics = new Metrics({
-                enabled: true,
-                auth: {enabled: false}
-            }, jest.mock('express') as any, metricRegister);
+            defaultMetrics = MetricsHelper.buildMetrics(metricRegister);
             jailManager = new JailManager({enabled: true, filterRules: []}, null, defaultMetrics);
         });
 

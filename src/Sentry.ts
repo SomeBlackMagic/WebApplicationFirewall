@@ -29,7 +29,7 @@ export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
     }
 
     public captureException(exception: unknown, hint?: EventHint, scope?: Scope): string {
-        const eventId: string = this.sentryInstance.captureException(exception, hint, scope);
+        const eventId: string = this.sentryInstance?.captureException(exception, hint, scope);
         if(this.config.debug) {
             console.log(`Sentry Logger [debug]: Sentry eventId: ${eventId}`);
         }

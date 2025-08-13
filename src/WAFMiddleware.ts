@@ -140,7 +140,7 @@ export class WAFMiddleware {
                 return;
             }
 
-            if(!await this.underAttackMiddleware.middleware(req, res, next, clientIp, country, city)) {
+            if(!await this.underAttackMiddleware.middleware(req, res, next, clientIp, country, city, requestId)) {
                 return;
             }
 

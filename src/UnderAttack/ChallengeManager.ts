@@ -36,19 +36,20 @@ export class ChallengeManager {
      */
     public generateChallengeProblem(): IChallengeProblem {
         const challengeId = crypto.randomBytes(16).toString('hex');
+        this.log.debug('Generated challenge', {id: challengeId});
         const seed = Math.floor(Math.random() * 1000000);
         const iterations = 1000 + Math.floor(Math.random() * 2000);
         const multiplier = 1103515245;
         const addend = 12345;
         const modulus = 2147483647;
 
-        // We calculate the correct answer
+        // Calculate the correct answer
         let expectedResult = seed;
         for (let i = 0; i < iterations; i++) {
             expectedResult = (expectedResult * multiplier + addend) % modulus;
         }
 
-        // We keep the correct answer
+        // Store the correct answer
         this.challengeSolutions.set(challengeId, {
             result: expectedResult,
             timestamp: Date.now()
@@ -86,10 +87,10 @@ export class ChallengeManager {
             return false;
         }
 
-        // We check the correctness of the solution
+        // Check the correctness of the solution
         const isValid = storedChallenge.result === challenge.solution;
 
-        // We delete the used Challenge
+        // Delete the used challenge
         this.challengeSolutions.delete(challenge.id);
 
         if (!isValid) {
