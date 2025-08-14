@@ -22,6 +22,7 @@ interface RequestPattern {
  */
 export interface IBotDetectorConfig {
     enabled: boolean;
+    mode?: 'strict' | 'audit'; // Mode of operation
     aiModel: 'basic' | 'advanced';
     blockSuspiciousUA: boolean;
     historyCleanup?: {
@@ -44,6 +45,8 @@ export class BotDetector {
         private readonly log?: LoggerInterface,
     ) {
         this.config = merge<object|IBotDetectorConfig, IBotDetectorConfig>({
+            enabled: false,
+            mode: 'strict',
             historyCleanup: {
                 enabled: true,
                 time: 10
@@ -109,35 +112,55 @@ export class BotDetector {
         if (this.isKnownBot(userAgent)) {
             this.log.warn('Detected known attack bot', {ip: clientIp, userAgent});
             this.metrics.incrementKnownBotDetection();
-            return true;
+            if(this.config.mode === 'strict') {
+                return true;
+            } else {
+                this.log.debug('Bot detection in audit mode, allowing request', {ip: clientIp, userAgent});
+            }
         }
 
         // 2. Check behavioral patterns
         if (this.detectSuspiciousPatterns(clientIp)) {
             this.log.warn('Detected suspicious request patterns', {ip: clientIp});
             this.metrics.incrementSuspiciousPatternsDetection();
-            return true;
+            if(this.config.mode === 'strict') {
+                return true;
+            } else {
+                this.log.debug('Suspicious patterns detection in audit mode, allowing request', {ip: clientIp});
+            }
         }
 
         // 3. Check headers for automation signs
         if (this.checkAutomationHeaders(req)) {
             this.log.warn('Detected automation headers', {ip: clientIp});
             this.metrics.incrementAutomationHeadersDetection();
-            return true;
+            if(this.config.mode === 'strict') {
+                return true;
+            } else {
+                this.log.debug('Automation headers detection in audit mode, allowing request', {ip: clientIp});
+            }
         }
 
         // 4. Check challenge execution time (if any)
         if (this.checkChallengeTimingAnomaly(clientIp)) {
             this.log.warn('Detected challenge timing anomaly', {ip: clientIp});
             this.metrics.incrementTimingAnomalyDetection();
-            return true;
+            if(this.config.mode === 'strict') {
+                return true;
+            } else {
+                this.log.debug('Challenge timing anomaly detection in audit mode, allowing request', {ip: clientIp});
+            }
         }
 
         // 5. Check based on JavaScript data from browser
         if (data !== null && this.checkClientData(data)) {
             this.log.debug('Detected bot from client data', {data});
             this.metrics.incrementClientDataDetection();
-            return true;
+            if(this.config.mode === 'strict') {
+                return true;
+            } else {
+                this.log.debug('Client data detection in audit mode, allowing request', {ip: clientIp});
+            }
         }
 
         // 6. Advanced heuristics
@@ -150,7 +173,11 @@ export class BotDetector {
             if (suspicionScore > 0.8) {
                 this.log.warn('High suspicion score detected', {ip: clientIp, score: suspicionScore});
                 this.metrics.incrementHighSuspicionDetection();
-                return true;
+                if(this.config.mode === 'strict') {
+                    return true;
+                } else {
+                    this.log.debug('High suspicion score detection in audit mode, allowing request', {ip: clientIp, score: suspicionScore});
+                }
             }
         }
 

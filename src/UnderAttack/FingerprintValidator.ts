@@ -66,7 +66,9 @@ export class FingerprintValidator {
                 const proofScore = this.browserProofValidator.validateBrowserProofs(
                     data.browserProofs,
                     data.requestId,
-                    data.userAgent  // Pass userAgent to determine mobile device
+                    data.userAgent,  // Pass userAgent to determine mobile device
+                    data.challengeId,
+                    data.proofSalt   // Pass challenge data for proof binding
                 );
                 this.log.debug('Browser proofs validation score', {proofScore});
 
@@ -98,10 +100,10 @@ export class FingerprintValidator {
             }
 
             // Check for WebGL or Canvas presence
-            // if (!data.webglVendor && !data.canvasFingerprint) {
-            //     this.log.debug('Missing WebGL and Canvas support', {data});
-            //     score -= 15;
-            // }
+            if (!data.webglVendor && !data.canvasFingerprint) {
+                this.log.debug('Missing WebGL and Canvas support', {data});
+                score -= 15;
+            }
         } else {
             // If component data is completely missing, significantly reduce the score
             score -= 50;
@@ -146,8 +148,13 @@ export class FingerprintValidator {
         const {width, height, colorDepth, pixelDepth} = data.screenResolution;
         const ua = data.userAgent?.toLowerCase() || '';
 
-        // Basic validation - invalid dimensions
-        if (width <= 0 || height <= 0 || width > 8000 || height > 8000) {
+        // Determine if it's a mobile device
+        const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
+
+        // Basic validation - invalid dimensions (making checks more flexible for mobile devices)
+        if (width <= 0 || height <= 0 ||
+            (!isMobile && width > 8000) || (!isMobile && height > 8000) ||
+            (isMobile && width > 3000) || (isMobile && height > 3000)) {
             return true;
         }
 
@@ -159,9 +166,17 @@ export class FingerprintValidator {
         // Determine device type and characteristics
         const deviceInfo = this.analyzeDeviceType(ua, width, height);
 
-        // Check against known device patterns
-        if (this.checkAgainstKnownDevices(deviceInfo, width, height)) {
-            return true;
+        // For mobile devices we skip some checks that often produce false positives
+        if (!isMobile) {
+            // Check against known device patterns - only for non-mobile devices
+            if (this.checkAgainstKnownDevices(deviceInfo, width, height)) {
+                return true;
+            }
+
+            // Cross-validate with other fingerprint data - only for non-mobile devices
+            if (this.crossValidateScreenData(data, deviceInfo)) {
+                return true;
+            }
         }
 
         // Check aspect ratio based on device type
@@ -171,11 +186,6 @@ export class FingerprintValidator {
 
         // Check for common automation/headless browser patterns
         if (this.checkAutomationPatterns(deviceInfo, width, height, ua)) {
-            return true;
-        }
-
-        // Cross-validate with other fingerprint data
-        if (this.crossValidateScreenData(data, deviceInfo)) {
             return true;
         }
 
@@ -215,7 +225,7 @@ export class FingerprintValidator {
         const maxDimension = Math.max(width, height);
         const aspectRatio = maxDimension / minDimension;
 
-        // Determine device type with more precision
+        // Determine a device type with more precision
         let deviceType: 'mobile' | 'tablet' | 'desktop' = 'desktop';
         let brand: string | null = null;
         let isIPhone = false;
@@ -497,6 +507,11 @@ export interface IClientFingerprint {
     extensions?: string[];
     /** Browser proof data for real browser verification */
     browserProofs?: IBrowserProofs;
+        // Challenge verification data
+        challengeId?: string;
+        proofSalt?: string;
+        timestamp?: number;
+        nonce?: string;
     /** Proof generation time (for speed verification) */
     proofGenerationTime?: number;
 }

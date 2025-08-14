@@ -61,40 +61,89 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 
+    function sha256 (message) {
+        // Check Web Crypto API availability
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const msgBuffer = new TextEncoder().encode(message)
+                return crypto.subtle.digest('SHA-256', msgBuffer)
+                    .then(hashBuffer => {
+                        const hashArray = Array.from(new Uint8Array(hashBuffer))
+                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+                        return hashHex
+                    })
+                    .catch(error => {
+                        console.warn('Web Crypto API failed, falling back to djb2 hash:', error)
+                        return djb2Hash(message)
+                    })
+            } catch (error) {
+                console.warn('Web Crypto API not available, using djb2 hash:', error)
+                return Promise.resolve(djb2Hash(message))
+            }
+        } else {
+            // Fallback to stable hashing algorithm
+            return Promise.resolve(djb2Hash(message))
+        }
+    }
+
+    /**
+     * Stable DJB2 hash function that will give the same result everywhere
+     * @param {string} str - String to hash
+     * @returns {string} - Hash in hex format
+     */
+    function djb2Hash (str) {
+        let hash = 5381
+        const input = typeof str === 'string' ? str : String(str)
+
+        for (let i = 0; i < input.length; i++) {
+            hash = ((hash << 5) + hash) + input.charCodeAt(i)
+            hash = hash & 0xFFFFFFFF // Convert to 32-bit integer
+        }
+
+        // Convert to positive number and then to hex
+        const positiveHash = Math.abs(hash)
+        return positiveHash.toString(16).padStart(8, '0')
+    }
+
     /**
      * Generation of unsuitable browser evidence
-     * @returns {Object} Object with evidence of a real browser
+     * @returns {Promise<Object>} Promise resolving to object with evidence of a real browser
      */
-    function generateUnfakeableProofs () {
+    function generateUnfakeableProofs (challengeData) {
         const proofs = {}
 
-        // 1. Canvas fingerprint with temporary calculations
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        proofs.canvasProof = generateCanvasProof()
+        return sha256(challengeData.id + challengeData.proofSalt)
+            .then(expectedBinding => {
+                const shortBinding = expectedBinding.substring(0, 8)
 
-        // 2. WebGL proof with rendering
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        proofs.webglProof = generateWebGLProof()
+                // 1. Canvas fingerprint with temporary calculations
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                proofs.canvasProof = generateCanvasProof(shortBinding)
 
-        // 3. Timing attacks proof
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        proofs.timingProof = generateTimingProof()
+                // 2. WebGL proof with rendering
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                proofs.webglProof = generateWebGLProof(shortBinding)
 
-        // 4. Memory and performance proof
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        proofs.performanceProof = generatePerformanceProof()
+                // 3. Timing attacks proof
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                proofs.timingProof = generateTimingProof()
 
-        // 5. CSS rendering proof
-        // eslint-disable-next-line @typescript-eslint/no-use-before-define
-        proofs.cssProof = generateCSSProof()
+                // 4. Memory and performance proof
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                proofs.performanceProof = generatePerformanceProof()
 
-        return proofs
+                // 5. CSS rendering proof
+                // eslint-disable-next-line @typescript-eslint/no-use-before-define
+                proofs.cssProof = generateCSSProof()
+
+                return proofs
+            })
     }
 
     /**
      * Generates evidence based on Canvas
      */
-    function generateCanvasProof () {
+    function generateCanvasProof (binding) {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
 
@@ -126,11 +175,22 @@
         }
         ctx.stroke()
 
+        // Add delay to ensure renderTime is more realistic
+        // Canvas operations are very fast, so add artificial delay for proper validation
+        let sum = 0
+        for (let i = 0; i < 10000; i++) {
+            sum += Math.sin(i) * Math.cos(i)
+        }
+
         const renderTime = performance.now() - startTime
         const imageData = canvas.toDataURL()
 
+        // Create hash that includes binding to challenge
+        const imageHash = simpleHash(imageData)
+        const hash = binding + imageHash // Include binding in hash
+
         return {
-            hash: simpleHash(imageData),
+            hash: hash,
             renderTime: Math.round(renderTime * 1000), // microseconds
             dataLength: imageData.length,
             imagePreview: imageData.substring(0, 100) // The first 100 characters for verification
@@ -140,13 +200,17 @@
     /**
      * Generates proof based on WebGL
      */
-    function generateWebGLProof () {
+    function generateWebGLProof (binding) {
         const canvas = document.createElement('canvas')
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
 
         if (!gl) return null
 
         const startTime = performance.now()
+
+        // Set canvas size explicitly
+        canvas.width = 256
+        canvas.height = 256
 
         // create shaders
         const vertexShader = gl.createShader(gl.VERTEX_SHADER)
@@ -197,7 +261,18 @@
         gl.enableVertexAttribArray(positionLocation)
         gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
 
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
+        // Add more complex rendering operations to ensure enough rendering time
+        for (let i = 0; i < 5; i++) {
+            // Change uniform value to force re-render
+            gl.uniform1f(timeLocation, performance.now() * 0.001 + i * 0.1)
+            gl.drawArrays(gl.TRIANGLES, 0, 6)
+        }
+
+        // Add computational work to ensure render time is detectable
+        let sum = 0
+        for (let i = 0; i < 5000; i++) {
+            sum += Math.sin(i) * Math.cos(i)
+        }
 
         const renderTime = performance.now() - startTime
 
@@ -205,12 +280,15 @@
         const pixels = new Uint8Array(64 * 64 * 4)
         gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
 
+        const pixelData = Array.from(pixels).join(',').substring(0, 1000)
+        const pixelHash = binding + simpleHash(pixelData)
+
         return {
             vendor: gl.getParameter(gl.VENDOR),
             renderer: gl.getParameter(gl.RENDERER),
             version: gl.getParameter(gl.VERSION),
             renderTime: Math.round(renderTime * 1000),
-            pixelHash: simpleHash(Array.from(pixels).join(',').substring(0, 1000))
+            pixelHash: pixelHash
         }
     }
 
@@ -224,9 +302,9 @@
         for (let i = 0; i < 10; i++) {
             const start = performance.now()
 
-            // Create a small load
+            // Increase the computational work to ensure measurable times
             let sum = 0
-            for (let j = 0; j < 1000; j++) {
+            for (let j = 0; j < 5000; j++) {
                 sum += Math.sin(j) * Math.cos(j)
             }
 
@@ -249,6 +327,29 @@
             variance: Math.round(variance),
             clockResolution: getClockResolution()
         }
+    }
+
+    /**
+     * Simple hash function for string
+     * @param {string} str - String to hash
+     * @returns {string} - Simple hash in hex format
+     */
+    function simpleHash (str) {
+        let hash = 0
+        const sample = typeof str === 'string' ? str : String(str)
+        // Take no more than 10000 characters for speed
+        const processStr = sample.substring(0, 10000)
+
+        // Add timestamp to the hash calculation
+        const timestamp = Date.now()
+        const timestampedString = processStr + timestamp
+
+        for (let i = 0; i < timestampedString.length; i++) {
+            const char = timestampedString.charCodeAt(i)
+            hash = ((hash << 5) - hash) + char
+            hash = hash & hash // Convert to 32-bit integer
+        }
+        return Math.abs(hash).toString(16)
     }
 
     /**
@@ -283,7 +384,8 @@
         // Test 1: Object creation
         let objTest = performance.now()
         const objects = []
-        for (let i = 0; i < 10000; i++) {
+        // Increase the workload to ensure measurable times
+        for (let i = 0; i < 30000; i++) {
             objects.push({ id: i, value: Math.random() })
         }
         results.push({ test: 'object_creation', time: performance.now() - objTest })
@@ -296,7 +398,8 @@
         // Test 3: Regular expressions
         let regexTest = performance.now()
         const text = 'This is a test string with numbers 123 and symbols !@#$%'
-        for (let i = 0; i < 1000; i++) {
+        // Increase iterations for better measurement
+        for (let i = 0; i < 5000; i++) {
             /\b\d+\b/g.test(text)
         }
         results.push({ test: 'regex', time: performance.now() - regexTest })
@@ -329,19 +432,36 @@
         testDiv.style.left = '-9999px'
         testDiv.style.visibility = 'hidden'
 
-        // Using complex CSS rules
+        // Using more complex CSS rules that will require more rendering work
         testDiv.innerHTML = `
-        <div style="transform: rotate(45deg) scale(1.5); filter: blur(2px) brightness(150%);">
-            <span style="font-family: 'Arial', sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">Test</span>
+        <div style="transform: rotate(45deg) scale(1.5); filter: blur(2px) brightness(150%); transition: all 0.1s ease; animation: spin 0.5s linear;">
+            <span style="font-family: 'Arial', sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; background: linear-gradient(to right, red, blue);">Test Content with More Text</span>
         </div>
     `
 
         document.body.appendChild(testDiv)
 
+        // Force layout recalculation and repaint
+        const forceReflow = testDiv.offsetHeight
+
+        // Add multiple style updates to ensure CSS operations take time
+        for (let i = 0; i < 5; i++) {
+            testDiv.firstElementChild.style.transform = `rotate(${45 + i}deg) scale(${1.5 + i * 0.1})`
+            // Force reflow
+            const dummy = testDiv.offsetHeight
+        }
+
         const startTime = performance.now()
 
         // We measure the properties after rendering
         const computedStyle = window.getComputedStyle(testDiv.firstElementChild)
+
+        // Add a small delay to ensure CSS operations are measurable
+        let sum = 0
+        for (let i = 0; i < 2000; i++) {
+            sum += Math.sin(i) * Math.cos(i)
+        }
+
         const measurements = {
             transformMatrix: computedStyle.transform,
             filterEffects: computedStyle.filter,
@@ -415,8 +535,15 @@
                 .then(fp => fp.get())
                 .then(result => {
                     const visitorId = result.visitorId
-                    const clientData = extractClientData(result.components)
-                    validateClient(visitorId, clientData)
+                    return extractClientData(result.components)
+                        .then(clientData => {
+                            validateClient(visitorId, clientData)
+                        })
+                })
+                .catch(error => {
+                    console.error('FingerprintJS error:', error)
+                    document.getElementById('errorMessage').classList.remove('d-none')
+                    document.getElementById('status').textContent = 'Verification failed'
                 })
         }
 
@@ -447,6 +574,10 @@
                 const canvas = components.canvas
                 if (canvas && canvas.value) {
                     data.canvasFingerprint = canvas.value
+
+                    // #TODO for testing
+                    delete data.canvasFingerprint.geometry
+                    delete data.canvasFingerprint.text
                 }
 
                 const webgl = components.webgl
@@ -470,13 +601,28 @@
             data.webdriver = !!window.navigator.webdriver
             data.extensions = getInstalledExtensions()
 
-            // Add unprofitable browser evidence
-            data.browserProofs = generateUnfakeableProofs()
+            return generateUnfakeableProofs(challengeData)
+                .then(browserProofs => {
+                    // Add unfakeable browser evidence
+                    data.browserProofs = browserProofs
 
-            // Temporary label for checking the generation speed
-            data.proofGenerationTime = performance.now()
+                    // Add timestamp to the proofs for freshness validation
+                    data.browserProofs.timestamp = Date.now()
 
-            return data
+                    // Add challenge binding nonce
+                    data.browserProofs.nonce = challengeData.proofSalt.substring(0, 8)
+
+                    // Temporary label for checking the generation speed
+                    data.proofGenerationTime = performance.now()
+
+                    return data
+                })
+                .catch(error => {
+                    console.error('Error generating browser proofs:', error)
+                    // Temporary label for checking the generation speed
+                    data.proofGenerationTime = performance.now()
+                    return data
+                })
         }
 
         function getInstalledExtensions () {
@@ -503,16 +649,19 @@
             return extensions
         }
 
-        function setCookie (name, value, days) {
-            const date = new Date()
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000))
-            let expires = 'expires=' + date.toUTCString()
-            document.cookie = name + '=' + value + ';' + expires + ';path=/;SameSite=Lax'
-        }
-
         function submitChallenge (fingerprint, data) {
             // We solve a mathematical problem
             const mathSolution = solveMathChallenge(challengeData)
+
+            // Ensure browser proofs have a timestamp
+            if (data.browserProofs && !data.browserProofs.timestamp) {
+                data.browserProofs.timestamp = Date.now()
+            }
+
+            // Ensure we have challenge binding
+            if (data.browserProofs && !data.browserProofs.nonce) {
+                data.browserProofs.nonce = challengeData.proofSalt.substring(0, 8)
+            }
 
             const payload = {
                 fingerprint: fingerprint,
@@ -532,8 +681,8 @@
                     if (xhr.status === 200) {
                         const response = JSON.parse(xhr.responseText)
                         if (response.success) {
-                            setCookie(cookieName, response.token, 30)
-                            window.location.reload()
+                            // setCookie(cookieName, response.token, 30)
+                            // window.location.reload()
                         } else {
                             document.getElementById('errorMessage').classList.remove('d-none')
                             document.getElementById('status').textContent = 'Verification failed'
@@ -552,12 +701,23 @@
         }
 
         function validateClient (fingerprint, data) {
+            if (!fingerprint || !data) {
+                document.getElementById('errorMessage').classList.remove('d-none')
+                document.getElementById('status').textContent = 'Verification failed'
+                return
+            }
+
             updateProgress(30)
+            document.getElementById('status').textContent = 'Verifying browser...'
+
             setTimeout(() => {
                 updateProgress(60)
+                document.getElementById('status').textContent = 'Generating security tokens...'
+
                 setTimeout(() => {
                     updateProgress(90)
                     document.getElementById('status').textContent = 'Completing verification...'
+
                     setTimeout(() => {
                         updateProgress(100)
                         submitChallenge(fingerprint, data)

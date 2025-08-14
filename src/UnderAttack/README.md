@@ -102,3 +102,6 @@ The module exports the following metrics:
 - `waf_under_attack_proof_timing_failure` - count of Timing proof validation failures
 - `waf_under_attack_proof_performance_failure` - count of Performance proof validation failures
 - `waf_under_attack_proof_css_failure` - count of CSS proof validation failures
+- `waf_under_attack_proof_freshness_failure` - count of proof freshness validation failures
+- `waf_under_attack_proof_binding_failure` - count of proof cryptographic binding failures
+- `waf_under_attack_proof_correlation_failure` - count of proof correlation validation failures

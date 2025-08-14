@@ -34,14 +34,19 @@ export class ChallengeManager {
     /**
      * Generates a new mathematical task for checking
      */
-    public generateChallengeProblem(): IChallengeProblem {
+    public generateChallengeProblem(clientIp:string, requestId:string): IChallengeProblem {
         const challengeId = crypto.randomBytes(16).toString('hex');
-        this.log.debug('Generated challenge', {id: challengeId});
+        this.log.debug('Generated challenge', {
+            id: challengeId,
+            clientIp,
+           requestId
+        });
         const seed = Math.floor(Math.random() * 1000000);
         const iterations = 1000 + Math.floor(Math.random() * 2000);
         const multiplier = 1103515245;
         const addend = 12345;
         const modulus = 2147483647;
+        const proofSalt = crypto.randomBytes(8).toString('hex'); // Unique salt for proofs
 
         // Calculate the correct answer
         let expectedResult = seed;
@@ -49,9 +54,10 @@ export class ChallengeManager {
             expectedResult = (expectedResult * multiplier + addend) % modulus;
         }
 
-        // Store the correct answer
+        // Store the correct answer and salt
         this.challengeSolutions.set(challengeId, {
             result: expectedResult,
+            proofSalt: proofSalt,
             timestamp: Date.now()
         });
 
@@ -61,7 +67,8 @@ export class ChallengeManager {
             iterations,
             multiplier,
             addend,
-            modulus
+            modulus,
+            proofSalt // Send the salt to client
         };
     }
 
@@ -69,22 +76,31 @@ export class ChallengeManager {
      * Validates challenge solution
      */
     public validateChallenge(challenge: IChallengeClientSolution): boolean {
+        const solution = this.validateAndGetChallenge(challenge);
+        return solution !== null;
+    }
+
+    /**
+     * Validates challenge solution and returns the stored solution if valid
+     * @returns The challenge solution with salt if valid, null otherwise
+     */
+    public validateAndGetChallenge(challenge: IChallengeClientSolution): IChallengeSolution | null {
         if (!challenge || !challenge.id || challenge.solution === undefined) {
-            return false;
+            return null;
         }
 
         const storedChallenge = this.challengeSolutions.get(challenge.id);
 
         if (!storedChallenge) {
             this.log.debug('Challenge not found', {id: challenge.id});
-            return false;
+            return null;
         }
 
         // Check time (not more than 5 minutes)
         if (Date.now() - storedChallenge.timestamp > 300000) {
             this.log.debug('Challenge expired', {id: challenge.id});
             this.challengeSolutions.delete(challenge.id);
-            return false;
+            return null;
         }
 
         // Check the correctness of the solution
@@ -99,9 +115,10 @@ export class ChallengeManager {
                 expected: storedChallenge.result,
                 actual: challenge.solution
             });
+            return null;
         }
 
-        return isValid;
+        return storedChallenge;
     }
 
     /**
@@ -137,6 +154,7 @@ export interface IChallengeProblem {
     multiplier: number;
     addend: number;
     modulus: number;
+    proofSalt: string; // Salt for cryptographic binding
 }
 
 /**
@@ -144,6 +162,7 @@ export interface IChallengeProblem {
  */
 export interface IChallengeSolution {
     result: number;
+    proofSalt: string; // Salt for proof verification
     timestamp: number;
 }
 

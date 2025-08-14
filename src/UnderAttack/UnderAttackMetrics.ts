@@ -194,6 +194,31 @@ export class UnderAttackMetrics  extends Singleton<UnderAttackMetrics, []> {
             buckets: [50, 100, 200, 500, 1000, 2000, 5000],
             registers: [this.metricsInstance.getRegisters()]
         });
+
+        // New metrics for proof binding and rate limiting
+        this.metrics['proof_binding_failure'] = new promClient.Counter({
+            name: 'waf_under_attack_proof_binding_failure',
+            help: 'Number of failures due to invalid proof binding to challenge',
+            registers: [this.metricsInstance.getRegisters()]
+        });
+
+        this.metrics['proof_freshness_failure'] = new promClient.Counter({
+            name: 'waf_under_attack_proof_freshness_failure',
+            help: 'Number of failures due to proof freshness validation',
+            registers: [this.metricsInstance.getRegisters()]
+        });
+
+        this.metrics['proof_correlation_failure'] = new promClient.Counter({
+            name: 'waf_under_attack_proof_correlation_failure',
+            help: 'Number of failures due to inconsistent proofs',
+            registers: [this.metricsInstance.getRegisters()]
+        });
+
+        this.metrics['proof_rate_limited'] = new promClient.Counter({
+            name: 'waf_under_attack_proof_rate_limited',
+            help: 'Number of requests rejected due to proof reuse',
+            registers: [this.metricsInstance.getRegisters()]
+        });
     }
 
     /**
@@ -384,5 +409,33 @@ export class UnderAttackMetrics  extends Singleton<UnderAttackMetrics, []> {
      */
     public recordSuspicionScore(score: number): void {
         (this.metrics['bot_suspicion_score'] as promClient.Histogram)?.observe(score);
+    }
+
+    /**
+     * Increments proof binding failure counter
+     */
+    public incrementProofBindingFailure(): void {
+        (this.metrics['proof_binding_failure'] as promClient.Counter)?.inc();
+    }
+
+    /**
+     * Increments proof freshness failure counter
+     */
+    public incrementProofFreshnessFailure(): void {
+        (this.metrics['proof_freshness_failure'] as promClient.Counter)?.inc();
+    }
+
+    /**
+     * Increments proof correlation failure counter
+     */
+    public incrementProofCorrelationFailure(): void {
+        (this.metrics['proof_correlation_failure'] as promClient.Counter)?.inc();
+    }
+
+    /**
+     * Increments proof rate limiting counter
+     */
+    public incrementProofRateLimited(): void {
+        (this.metrics['proof_rate_limited'] as promClient.Counter)?.inc();
     }
 }

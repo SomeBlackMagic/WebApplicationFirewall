@@ -46,6 +46,7 @@ describe("UnderAttackMiddleware", () => {
             mockChallengeManager as any,
             null,
             null,
+            null,
             mockMetrics as any
         );
 

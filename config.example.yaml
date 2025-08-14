@@ -56,7 +56,7 @@ wafMiddleware:
     # Challenge page settings
     challengePage:
       title: "Security Check"
-      # customHtmlPath: "/path/to/custom/challenge.html" # custom page
+      # path: "/path/to/custom/challenge.html" # custom page
 
     # URLs that don't require verification
     skipUrls:
@@ -73,6 +73,12 @@ wafMiddleware:
       - name: "X-Bypass-UnderAttack"
         value: "secret-key-12345"
 
+    proofRateLimiter:
+      enabled: true
+      mode: 'strict' # or 'audit' - in strict mode, if the rate limit is exceeded, the request will be blocked, in audit mode, the request will be allowed, but logged
+      maxUsageCount: 1000 # Maximum number of requests per minute
+      expirationTimeMs: 60000 # Time in milliseconds after which the usage count is reset
+      cleanupIntervalMs: 60000 # Interval in milliseconds for cleaning up expired entries
 
   whitelist:
     ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL

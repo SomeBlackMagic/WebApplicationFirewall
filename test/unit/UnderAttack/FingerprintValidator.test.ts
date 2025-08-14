@@ -61,7 +61,7 @@ describe('FingerprintValidator', () => {
             browserProofs: {},
         };
         const result = fingerprintValidator.validate('validfingerprint', data);
-        expect(result).toBe(80);
+        expect(result).toBe(65);
         expect(mockBrowserProofValidator.validateBrowserProofs).toHaveBeenCalledWith({}, '12345', 'test-agent');
     });
 

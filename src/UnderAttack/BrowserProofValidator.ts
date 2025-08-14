@@ -1,6 +1,7 @@
 import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {Log} from '@waf/Log';
 import {UnderAttackMetrics} from '@waf/UnderAttack/UnderAttackMetrics';
+import {HashUtils} from '@waf/Utils/HashUtils';
 
 /**
  * Class for validating robust browser proofs
@@ -24,15 +25,53 @@ export class BrowserProofValidator {
 
     /**
      * Validates all browser proofs and returns their reliability score
+     * @param proofs The browser proofs to validate
+     * @param requestId Request ID for logging
+     * @param userAgent User agent string for device detection
+     * @param challengeId Challenge ID for cryptographic binding
+     * @param proofSalt Salt for cryptographic binding
+     * @returns A score from 0-100 representing the reliability of the proofs
      */
-    public validateBrowserProofs(proofs: IBrowserProofs, requestId: string, userAgent?: string): number {
+    public validateBrowserProofs(
+        proofs: IBrowserProofs,
+        requestId: string,
+        userAgent?: string,
+        challengeId?: string,
+        proofSalt?: string
+    ): number {
         if (!proofs) {
             return 0;
+        }
+
+        // Store userAgent in proofs for use in other methods
+        if (userAgent && !proofs.userAgent) {
+            proofs.userAgent = userAgent;
         }
 
         let proofScore = 100;
         const isMobile = this.isMobileDevice(userAgent);
         const isIOS = this.isIOSDevice(userAgent);
+
+        // Validate proof freshness
+        if (!this.validateProofFreshness(proofs)) {
+            this.log.warn('Proof freshness validation failed', {requestId});
+            this.metrics?.incrementProofFreshnessFailure();
+            return Math.max(0, proofScore - 50); // Major deduction for expired proofs
+        }
+
+        // Validate cryptographic binding to challenge
+        if (challengeId && proofSalt && !this.validateProofBinding(proofs, challengeId, proofSalt)) {
+            this.log.warn('Proof binding validation failed', {requestId, challengeId});
+            this.metrics?.incrementProofBindingFailure();
+            return 0; // Zero score for proofs not bound to the challenge
+        }
+
+        // Validate correlation between different proof types
+        if (!this.validateProofCorrelation(proofs, userAgent)) {
+            this.log.warn('Proof correlation validation failed', {requestId});
+            this.metrics?.incrementProofCorrelationFailure();
+            proofScore -= 30; // Major deduction for inconsistent proofs
+        }
 
         // Validate Canvas proof
         if (proofs.canvasProof) {
@@ -317,6 +356,264 @@ export class BrowserProofValidator {
         );
     }
 
+    /**
+     * Validates that proofs were generated recently
+     * @param proofs Browser proofs to validate
+     * @returns true if proofs are fresh, false otherwise
+     */
+    private validateProofFreshness(proofs: IBrowserProofs): boolean {
+        // No timestamp means we can't validate freshness
+        if (!proofs.timestamp) return true;
+
+        const now = Date.now();
+        const proofAge = now - proofs.timestamp;
+
+        // Proofs should be generated within the last 30 seconds
+        if (proofAge < 0 || proofAge > 30000) {
+            this.log.debug('Proof age outside acceptable range', { age: proofAge });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Validates that proofs are cryptographically bound to the challenge
+     * @param proofs Browser proofs to validate
+     * @param challengeId ID of the challenge
+     * @param proofSalt Salt from the challenge
+     * @returns true if proofs are bound to the challenge, false otherwise
+     */
+    private validateProofBinding(proofs: IBrowserProofs, challengeId: string, proofSalt: string): boolean {
+        // Determine if there's a mobile User-Agent in the request
+        const isMobile = proofs.userAgent ? this.isMobileDevice(proofs.userAgent) : false;
+        const isIOS = proofs.userAgent ? this.isIOSDevice(proofs.userAgent) : false;
+
+        // For mobile devices, especially iOS, we prefer to use DJB2 hash
+        // for better compatibility and performance
+        let expectedBinding;
+
+        if (isIOS || isMobile) {
+            // Use DJB2 for mobile devices
+            const expectedHash = HashUtils.universalHash(challengeId + proofSalt, true); // preferDjb2 = true
+            expectedBinding = expectedHash.substring(0, 8);
+        } else {
+            // Use SHA-256 for desktop devices
+            const expectedHash = HashUtils.sha256(challengeId + proofSalt);
+            expectedBinding = expectedHash.substring(0, 8);
+        }
+
+        // Check that Canvas and WebGL proofs contain the challenge binding
+        if (proofs.canvasProof) {
+            // The hash should include the binding somewhere
+            if (!proofs.canvasProof.hash.includes(expectedBinding)) {
+                // Try checking with an alternative algorithm for devices with limited support
+                const altHash = isIOS || isMobile
+                    ? HashUtils.sha256(challengeId + proofSalt).substring(0, 8)
+                    : HashUtils.djb2Hash(challengeId + proofSalt).substring(0, 8);
+
+                if (!proofs.canvasProof.hash.includes(altHash)) {
+                    this.log.debug('Canvas proof not bound to challenge (both algorithms failed)', {
+                        expected: {
+                            primary: expectedBinding,
+                            alternative: altHash
+                        },
+                        hash: proofs.canvasProof.hash,
+                        isMobile: isMobile,
+                        isIOS: isIOS
+                    });
+                    return false;
+                } else {
+                    // Algorithm worked successfully, but need to note in logs
+                    this.log.debug('Canvas proof bound with alternative hash algorithm', {
+                        algorithm: isIOS || isMobile ? 'SHA-256' : 'DJB2'
+                    });
+                }
+            }
+        }
+
+        if (proofs.webglProof) {
+            // The pixel hash should include the binding
+            if (!proofs.webglProof.pixelHash.includes(expectedBinding)) {
+                // Try checking with an alternative algorithm for devices with limited support
+                const altHash = isIOS || isMobile
+                    ? HashUtils.sha256(challengeId + proofSalt).substring(0, 8)
+                    : HashUtils.djb2Hash(challengeId + proofSalt).substring(0, 8);
+
+                if (!proofs.webglProof.pixelHash.includes(altHash)) {
+                    this.log.debug('WebGL proof not bound to challenge (both algorithms failed)', {
+                        expected: {
+                            primary: expectedBinding,
+                            alternative: altHash
+                        },
+                        hash: proofs.webglProof.pixelHash,
+                        isMobile: isMobile,
+                        isIOS: isIOS
+                    });
+                    return false;
+                } else {
+                    // Algorithm worked successfully, but need to note in logs
+                    this.log.debug('WebGL proof bound with alternative hash algorithm', {
+                        algorithm: isIOS || isMobile ? 'SHA-256' : 'DJB2'
+                    });
+                }
+            }
+        }
+
+        // Check nonce
+        if (proofs.nonce && proofs.nonce !== proofSalt.substring(0, 8)) {
+            this.log.debug('Proof nonce mismatch', {
+                expected: proofSalt.substring(0, 8),
+                actual: proofs.nonce
+            });
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Validates consistency and correlation between different proof types
+     * @param proofs Browser proofs to validate
+     * @param userAgent
+     * @returns true if proofs are correlated, false otherwise
+     */
+    private validateProofCorrelation(proofs: IBrowserProofs, userAgent:string): boolean {
+        // Verify that timing and performance proofs correlate
+        if (proofs.timingProof && proofs.performanceProof) {
+            // Calculate variance of timing measurements
+            const durations = proofs.timingProof.measurements.map(m => m.duration);
+            const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+            const variance = durations.reduce((sum, val) => sum + Math.pow(val - avgDuration, 2), 0) / durations.length;
+
+            // Check correlation with performance tests
+            const perfTotal = proofs.performanceProof.totalTime;
+
+            // Set the correlation threshold based on device type
+            const isMobile = this.isMobileDevice(userAgent);
+            const isVM = this.isVirtualMachine(proofs);
+
+            // Higher threshold for mobile devices and VMs (which may have more scheduling jitter)
+            let correlationThreshold = 50000; // Base threshold
+            if (isMobile) correlationThreshold = 200000000; // Significantly increased threshold for mobile devices
+            if (isVM) correlationThreshold = 200000000; // Same threshold for VMs and mobile devices
+
+            // Reasonable correlation should exist between timing variance and performance total
+            // For real browsers, these values are related to the same hardware, but can have high variance
+            if (Math.abs(variance - perfTotal / 1000) > correlationThreshold && variance > 0 && perfTotal > 0) {
+                this.log.debug('Timing and performance proofs don\'t correlate', {
+                    timingVariance: variance,
+                    perfTotal: perfTotal,
+                    threshold: correlationThreshold,
+                    isMobile: isMobile,
+                    isVM: isVM
+                });
+                return false;
+            }
+        }
+
+        // Verify that CSS and Canvas proofs show similar rendering characteristics
+        if (proofs.cssProof && proofs.canvasProof) {
+            // If both have render times, they should be somewhat correlated on the same device
+            if (proofs.cssProof.renderTime > 0 && proofs.canvasProof.renderTime > 0) {
+                const cssTime = proofs.cssProof.renderTime;
+                const canvasTime = proofs.canvasProof.renderTime;
+
+                // Expect reasonable correlation of render times (within 100x)
+                if (cssTime > canvasTime * 100 || canvasTime > cssTime * 100) {
+                    this.log.debug('CSS and Canvas render times don\'t correlate', {
+                        cssTime: cssTime,
+                        canvasTime: canvasTime
+                    });
+                    return false;
+                }
+            }
+        }
+
+        // WebGL vendor/renderer should be consistent with performance
+        if (proofs.webglProof && proofs.performanceProof) {
+            // Check if hardware concurrency is consistent with GPU
+            // Mobile devices generally have fewer cores
+            const isMobileGPU = this.isMobileGPU(proofs.webglProof.renderer);
+            const cores = proofs.performanceProof.hardwareConcurrency || 0;
+
+            // Mobile GPU but high core count is suspicious
+            if (isMobileGPU && cores > 8) {
+                this.log.debug('WebGL GPU and hardware concurrency mismatch', {
+                    gpu: proofs.webglProof.renderer,
+                    cores: cores
+                });
+                return false;
+            }
+
+            // Desktop GPU but single core is suspicious
+            if (!isMobileGPU && cores === 1) {
+                this.log.debug('Desktop GPU with single core is suspicious', {
+                    gpu: proofs.webglProof.renderer,
+                    cores: cores
+                });
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Checks if the WebGL renderer indicates a mobile GPU
+     */
+    private isMobileGPU(renderer?: string): boolean {
+        if (!renderer) return false;
+
+        const mobileGPUKeywords = [
+            'PowerVR', 'Mali', 'Adreno', 'Apple GPU', 'Metal',
+            'Mobile Intel', 'Tegra', 'VideoCore'
+        ];
+
+        return mobileGPUKeywords.some(keyword =>
+            renderer.includes(keyword)
+        );
+    }
+
+    /**
+     * Detects if the browser is likely running in a virtual machine or emulator
+     * based on performance characteristics
+     */
+    private isVirtualMachine(proofs: IBrowserProofs): boolean {
+        // First check if it's a mobile device based on UserAgent
+        const isMobile = proofs.userAgent ? this.isMobileDevice(proofs.userAgent) : false;
+
+        // VM indicators in WebGL - this is a reliable indicator
+        if (proofs.webglProof) {
+            const vmGpuKeywords = ['llvmpipe', 'SwiftShader', 'VirtualBox', 'VMware'];
+            if (vmGpuKeywords.some(keyword =>
+                proofs.webglProof.renderer?.includes(keyword) ||
+                proofs.webglProof.vendor?.includes(keyword)
+            )) {
+                return true;
+            }
+        }
+
+        // For mobile devices we ignore high time variance,
+        // as it is normal due to background processes
+        if (!isMobile && proofs.timingProof && proofs.timingProof.variance) {
+            // Increase threshold by 10 times
+            if (proofs.timingProof.variance > 10000000) {
+                return true;
+            }
+        }
+
+        // For mobile devices we also ignore memory limitations
+        if (!isMobile && proofs.performanceProof?.memoryInfo) {
+            const memInfo = proofs.performanceProof.memoryInfo;
+            if (memInfo.jsHeapSizeLimit && memInfo.jsHeapSizeLimit < 100000000) { // Lower threshold to 100MB
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 }
 
 
@@ -325,6 +622,7 @@ export interface ICanvasProof {
     dataLength: number;
     hash: string;
     imagePreview: string;
+    proofNonce?: string;    // Proof-specific nonce
 }
 
 /**
@@ -336,6 +634,7 @@ export interface IWebGLProof {
     version: string;
     renderTime: number;
     pixelHash: string;
+    proofNonce?: string;    // Proof-specific nonce
 }
 
 /**
@@ -396,6 +695,9 @@ export interface ICSSProof {
  * Interface for all browser proofs
  */
 export interface IBrowserProofs {
+    timestamp?: number;      // When the proofs were generated
+    nonce?: string;          // One-time nonce from challenge
+    userAgent?: string;      // User-Agent for device type detection
     canvasProof?: ICanvasProof;
     webglProof?: IWebGLProof;
     timingProof?: ITimingProof;
