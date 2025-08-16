@@ -5,6 +5,7 @@ import {CategoryExtension} from "@elementary-lab/logger/src/Extensions/CategoryE
 import {AbstractTarget} from "@elementary-lab/logger/src/Targets/AbstractTarget";
 import {env, envBoolean, envNumber} from "@waf/Utils/Env";
 import {StdTarget} from "@elementary-lab/logger/src/Targets/StdTarget";
+import {LoggerConfigInterface} from "@elementary-lab/logger/src/Interface/LoggerConfigInterface";
 
 
 export class Log {
@@ -30,7 +31,7 @@ export class Log {
 
     private obj: Logger;
 
-    public constructor(targets?: AbstractTarget[]) {
+    public constructor(targets?: AbstractTarget[], extraConfig: Partial<LoggerConfigInterface> = {}) {
         if(!targets) {
             targets = [
                 new StdTarget({
@@ -51,9 +52,12 @@ export class Log {
             ];
         }
         this.obj = new Logger({
-            targets: targets,
-            traceLevel: 0,
-            flushByTimeInterval: envNumber('WAF_LOG_FLUSH_INTERVAL', 1000, 2)
+            ...{
+                targets: targets,
+                traceLevel: 0,
+                flushByTimeInterval: envNumber('WAF_LOG_FLUSH_INTERVAL', 1000, 2)
+            },
+            ...extraConfig
         })
 
         console.log = (...args: unknown[]) => {

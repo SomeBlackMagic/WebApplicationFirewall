@@ -1,9 +1,9 @@
 import {Request} from 'express';
 import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {Log} from '@waf/Log';
-import {IClientFingerprint} from '@waf/UnderAttack/FingerprintValidator';
 import {merge} from "lodash";
 import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
+import {IBrowserFingerprint} from "@waf/UnderAttack/FingerprintValidator";
 
 /**
  * Interface for storing a request pattern
@@ -95,7 +95,7 @@ export class BotDetector {
      * @param clientIp
      * @returns true if the request is from a bot, false if from a human
      */
-    public detect(req: Request, data: IClientFingerprint | null, clientIp: string): boolean {
+    public detect(req: Request, data: IBrowserFingerprint | null, clientIp: string, requestId: string): boolean {
         if (!this.config.enabled) {
             return false; // If bot detection is disabled, consider all requests as human
         }
@@ -319,36 +319,30 @@ export class BotDetector {
         return false;
     }
 
-    private checkClientData(data: IClientFingerprint): boolean {
-        // Check for typical bot anomalies
-
-        // Lack of cookie support
-        if (data.cookiesEnabled === false) {
+    private checkClientData(data: IBrowserFingerprint): boolean {
+        if (!data) {
             return true;
         }
 
-        // Absence of plugins and extensions in the browser
+        // Checking for the absence of plugins and extensions
         const hasPlugins = data.plugins && Array.isArray(data.plugins) && data.plugins.length > 0;
         const hasExtensions = data.extensions && Array.isArray(data.extensions) && data.extensions.length > 0;
 
-        // Most real users have at least a few extensions
-        const suspiciouslyEmpty = !hasPlugins && !hasExtensions;
+        // Less strict check - it is suspicious only if there is nothing at all
+        const suspiciouslyEmpty = !hasPlugins && !hasExtensions &&
+            (!data.fonts || data.fonts.length === 0);
 
-        // Check for headless browser
+        // Check on Headless browser with the right field
         const isHeadless = data.webdriver ||
-            (data.webglRenderer && data.webglRenderer.includes('SwiftShader'));
-
-        // Check for browser proofs anomalies (if any)
-        if (data.browserProofs) {
-            // Too fast or instant proof generation time
-            if (data.proofGenerationTime !== undefined &&
-                data.proofGenerationTime < 50) {
-                return true;
-            }
-        }
+            (data.webglVendor && (
+                data.webglVendor.includes('SwiftShader') ||
+                data.webglVendor.includes('Mesa') ||
+                data.webglVendor === 'Google Inc.'
+            ));
 
         return suspiciouslyEmpty || isHeadless;
     }
+
 
     private checkChallengeTimingAnomaly(clientIP: string): boolean {
         const challengeStart = this.challengeTimings.get(clientIP);
@@ -366,7 +360,7 @@ export class BotDetector {
         return false;
     }
 
-    private calculateSuspicionScore(req: Request, clientIP: string, data: IClientFingerprint | null): number {
+    private calculateSuspicionScore(req: Request, clientIP: string, data: IBrowserFingerprint | null): number {
         let score = 0;
         const history = this.requestHistory.get(clientIP) || [];
         const userAgent = req.header('user-agent') || '';

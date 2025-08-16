@@ -81,7 +81,7 @@ export class ChallengeManager {
     }
 
     /**
-     * Validates challenge solution and returns the stored solution if valid
+     * Validates a challenge solution and returns the stored solution if valid
      * @returns The challenge solution with salt if valid, null otherwise
      */
     public validateAndGetChallenge(challenge: IChallengeClientSolution): IChallengeSolution | null {

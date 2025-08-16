@@ -24,11 +24,11 @@ describe("UnderAttackMiddleware", () => {
     const defaultConfig: IUnderAttackConfig = {
         enabled: true,
         challengeDurationMs: 300000,
-        botDetection: {
-            enabled: true,
-            aiModel: 'basic',
-            blockSuspiciousUA: true,
-        },
+        // botDetection: {
+        //     enabled: true,
+        //     aiModel: 'basic',
+        //     blockSuspiciousUA: true,
+        // },
         challengePage: {
             title: "Challenge",
             path: process.cwd() + "/pages/challenge/index.html"
@@ -44,7 +44,6 @@ describe("UnderAttackMiddleware", () => {
             mockFingerprintValidator as any,
             mockBotDetector as any,
             mockChallengeManager as any,
-            null,
             null,
             null,
             mockMetrics as any

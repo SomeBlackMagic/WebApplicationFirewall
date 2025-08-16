@@ -48,8 +48,8 @@
 
                     <div id="errorMessage" class="d-none">
                         <div class="alert alert-danger" role="alert">
-                            It was not possible to perform the audit. Please make sure that JavaScript has been included
-                            in your browser and is allowed Cooks.
+                            It was not possible to perform the verification. Please make sure that JavaScript is enabled
+                            in your browser and cookies are allowed.
                         </div>
                     </div>
                 </div>
@@ -60,161 +60,112 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    (async function () {
+        /**
+         * Generation of unsuitable browser evidence
+         * @returns {Promise<Object>} Promise resolving to object with evidence of a real browser
+         */
+        async function fpGenerateUnfakeableProofs (shortBinding) {
+            const proofs = {}
 
-    function sha256 (message) {
-        // Check Web Crypto API availability
-        if (window.crypto && window.crypto.subtle) {
-            try {
-                const msgBuffer = new TextEncoder().encode(message)
-                return crypto.subtle.digest('SHA-256', msgBuffer)
-                    .then(hashBuffer => {
-                        const hashArray = Array.from(new Uint8Array(hashBuffer))
-                        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-                        return hashHex
-                    })
-                    .catch(error => {
-                        console.warn('Web Crypto API failed, falling back to djb2 hash:', error)
-                        return djb2Hash(message)
-                    })
-            } catch (error) {
-                console.warn('Web Crypto API not available, using djb2 hash:', error)
-                return Promise.resolve(djb2Hash(message))
+            // 1. Canvas fingerprint with temporary calculations
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            proofs.canvasProof = await fpGenerateCanvasProof(shortBinding)
+
+            // 2. WebGL proof with rendering
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            proofs.webglProof = await fpGenerateWebGLProof(shortBinding)
+
+            // 3. Timing attacks proof
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            proofs.timingProof = await fpGenerateTimingProof(shortBinding)
+
+            // 4. Memory and performance proof
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            proofs.performanceProof = await fpGeneratePerformanceProof(shortBinding)
+
+            // 5. CSS rendering proof
+            // eslint-disable-next-line @typescript-eslint/no-use-before-define
+            proofs.cssProof = await fpGenerateCSSProof(shortBinding)
+
+            return proofs
+        }
+
+        /**
+         * Generates evidence based on Canvas
+         */
+        async function fpGenerateCanvasProof (binding) {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+
+            if (!ctx) return null
+
+            const startTime = performance.now()
+
+            // Create a complex image that requires real rendering
+            canvas.width = 200
+            canvas.height = 200
+
+            // Gradient
+            const gradient = ctx.createRadialGradient(100, 100, 0, 100, 100, 100)
+            gradient.addColorStop(0, 'red')
+            gradient.addColorStop(0.5, 'yellow')
+            gradient.addColorStop(1, 'blue')
+            ctx.fillStyle = gradient
+            ctx.fillRect(0, 0, 200, 200)
+
+            // Text with various fonts
+            ctx.font = '12px Arial'
+            ctx.fillStyle = 'black'
+            ctx.fillText('Test 123 АБВ 中文', 10, 30)
+
+            // Complex shapes
+            ctx.beginPath()
+            for (let i = 0; i < 50; i++) {
+                ctx.lineTo(Math.sin(i * 0.1) * 50 + 100, Math.cos(i * 0.1) * 50 + 100)
             }
-        } else {
-            // Fallback to stable hashing algorithm
-            return Promise.resolve(djb2Hash(message))
-        }
-    }
+            ctx.stroke()
 
-    /**
-     * Stable DJB2 hash function that will give the same result everywhere
-     * @param {string} str - String to hash
-     * @returns {string} - Hash in hex format
-     */
-    function djb2Hash (str) {
-        let hash = 5381
-        const input = typeof str === 'string' ? str : String(str)
+            // Add delay to ensure renderTime is more realistic
+            // Canvas operations are very fast, so add artificial delay for proper validation
+            let sum = 0
+            for (let i = 0; i < 10000; i++) {
+                sum += Math.sin(i) * Math.cos(i)
+            }
 
-        for (let i = 0; i < input.length; i++) {
-            hash = ((hash << 5) + hash) + input.charCodeAt(i)
-            hash = hash & 0xFFFFFFFF // Convert to 32-bit integer
-        }
+            const renderTime = performance.now() - startTime
+            const imageData = canvas.toDataURL()
 
-        // Convert to positive number and then to hex
-        const positiveHash = Math.abs(hash)
-        return positiveHash.toString(16).padStart(8, '0')
-    }
+            // Create a hash that includes binding to Challenge
+            const imageHash = await fpSimpleHash(imageData)
+            const hash = binding + imageHash // We turn on the binding in the hash
 
-    /**
-     * Generation of unsuitable browser evidence
-     * @returns {Promise<Object>} Promise resolving to object with evidence of a real browser
-     */
-    function generateUnfakeableProofs (challengeData) {
-        const proofs = {}
-
-        return sha256(challengeData.id + challengeData.proofSalt)
-            .then(expectedBinding => {
-                const shortBinding = expectedBinding.substring(0, 8)
-
-                // 1. Canvas fingerprint with temporary calculations
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                proofs.canvasProof = generateCanvasProof(shortBinding)
-
-                // 2. WebGL proof with rendering
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                proofs.webglProof = generateWebGLProof(shortBinding)
-
-                // 3. Timing attacks proof
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                proofs.timingProof = generateTimingProof()
-
-                // 4. Memory and performance proof
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                proofs.performanceProof = generatePerformanceProof()
-
-                // 5. CSS rendering proof
-                // eslint-disable-next-line @typescript-eslint/no-use-before-define
-                proofs.cssProof = generateCSSProof()
-
-                return proofs
-            })
-    }
-
-    /**
-     * Generates evidence based on Canvas
-     */
-    function generateCanvasProof (binding) {
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d')
-
-        if (!ctx) return null
-
-        const startTime = performance.now()
-
-        // Create a complex image that requires real rendering
-        canvas.width = 200
-        canvas.height = 200
-
-        // Gradient
-        const gradient = ctx.createRadialGradient(100, 100, 0, 100, 100, 100)
-        gradient.addColorStop(0, 'red')
-        gradient.addColorStop(0.5, 'yellow')
-        gradient.addColorStop(1, 'blue')
-        ctx.fillStyle = gradient
-        ctx.fillRect(0, 0, 200, 200)
-
-        // Text with various fonts
-        ctx.font = '12px Arial'
-        ctx.fillStyle = 'black'
-        ctx.fillText('Test 123 АБВ 中文', 10, 30)
-
-        // Complex shapes
-        ctx.beginPath()
-        for (let i = 0; i < 50; i++) {
-            ctx.lineTo(Math.sin(i * 0.1) * 50 + 100, Math.cos(i * 0.1) * 50 + 100)
-        }
-        ctx.stroke()
-
-        // Add delay to ensure renderTime is more realistic
-        // Canvas operations are very fast, so add artificial delay for proper validation
-        let sum = 0
-        for (let i = 0; i < 10000; i++) {
-            sum += Math.sin(i) * Math.cos(i)
+            return {
+                hash: hash,
+                renderTime: Math.round(renderTime * 1000), // microseconds
+                dataLength: imageData.length,
+                imagePreview: imageData.substring(0, 100) // The first 100 characters for verification
+            }
         }
 
-        const renderTime = performance.now() - startTime
-        const imageData = canvas.toDataURL()
+        /**
+         * Generates proof based on WebGL
+         */
+        async function fpGenerateWebGLProof (binding) {
+            const canvas = document.createElement('canvas')
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
 
-        // Create hash that includes binding to challenge
-        const imageHash = simpleHash(imageData)
-        const hash = binding + imageHash // Include binding in hash
+            if (!gl) return null
 
-        return {
-            hash: hash,
-            renderTime: Math.round(renderTime * 1000), // microseconds
-            dataLength: imageData.length,
-            imagePreview: imageData.substring(0, 100) // The first 100 characters for verification
-        }
-    }
+            const startTime = performance.now()
 
-    /**
-     * Generates proof based on WebGL
-     */
-    function generateWebGLProof (binding) {
-        const canvas = document.createElement('canvas')
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
+            // Set canvas size explicitly
+            canvas.width = 256
+            canvas.height = 256
 
-        if (!gl) return null
-
-        const startTime = performance.now()
-
-        // Set canvas size explicitly
-        canvas.width = 256
-        canvas.height = 256
-
-        // create shaders
-        const vertexShader = gl.createShader(gl.VERTEX_SHADER)
-        gl.shaderSource(vertexShader, `
+            // create shaders
+            const vertexShader = gl.createShader(gl.VERTEX_SHADER)
+            gl.shaderSource(vertexShader, `
         attribute vec2 position;
         varying vec2 vUv;
         void main() {
@@ -222,10 +173,10 @@
             gl_Position = vec4(position, 0.0, 1.0);
         }
     `)
-        gl.compileShader(vertexShader)
+            gl.compileShader(vertexShader)
 
-        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
-        gl.shaderSource(fragmentShader, `
+            const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)
+            gl.shaderSource(fragmentShader, `
         precision mediump float;
         varying vec2 vUv;
         uniform float time;
@@ -236,318 +187,271 @@
             gl_FragColor = vec4(c, c * 0.5, 1.0 - c, 1.0);
         }
     `)
-        gl.compileShader(fragmentShader)
+            gl.compileShader(fragmentShader)
 
-        // Create program
-        const program = gl.createProgram()
-        gl.attachShader(program, vertexShader)
-        gl.attachShader(program, fragmentShader)
-        gl.linkProgram(program)
-        gl.useProgram(program)
+            // Create program
+            const program = gl.createProgram()
+            gl.attachShader(program, vertexShader)
+            gl.attachShader(program, fragmentShader)
+            gl.linkProgram(program)
+            gl.useProgram(program)
 
-        // Render frame
-        const timeLocation = gl.getUniformLocation(program, 'time')
-        gl.uniform1f(timeLocation, performance.now() * 0.001)
+            // Render frame
+            const timeLocation = gl.getUniformLocation(program, 'time')
+            gl.uniform1f(timeLocation, performance.now() * 0.001)
 
-        // Create buffer
-        const buffer = gl.createBuffer()
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            -1, -1, 1, -1, -1, 1,
-            -1, 1, 1, -1, 1, 1
-        ]), gl.STATIC_DRAW)
+            // Create buffer
+            const buffer = gl.createBuffer()
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1, 1, -1, -1, 1,
+                -1, 1, 1, -1, 1, 1
+            ]), gl.STATIC_DRAW)
 
-        const positionLocation = gl.getAttribLocation(program, 'position')
-        gl.enableVertexAttribArray(positionLocation)
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
+            const positionLocation = gl.getAttribLocation(program, 'position')
+            gl.enableVertexAttribArray(positionLocation)
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
 
-        // Add more complex rendering operations to ensure enough rendering time
-        for (let i = 0; i < 5; i++) {
-            // Change uniform value to force re-render
-            gl.uniform1f(timeLocation, performance.now() * 0.001 + i * 0.1)
-            gl.drawArrays(gl.TRIANGLES, 0, 6)
-        }
+            // Add more complex rendering operations to ensure enough rendering time
+            for (let i = 0; i < 5; i++) {
+                // Change uniform value to force re-render
+                gl.uniform1f(timeLocation, performance.now() * 0.001 + i * 0.1)
+                gl.drawArrays(gl.TRIANGLES, 0, 6)
+            }
 
-        // Add computational work to ensure render time is detectable
-        let sum = 0
-        for (let i = 0; i < 5000; i++) {
-            sum += Math.sin(i) * Math.cos(i)
-        }
-
-        const renderTime = performance.now() - startTime
-
-        // Read pixels
-        const pixels = new Uint8Array(64 * 64 * 4)
-        gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-
-        const pixelData = Array.from(pixels).join(',').substring(0, 1000)
-        const pixelHash = binding + simpleHash(pixelData)
-
-        return {
-            vendor: gl.getParameter(gl.VENDOR),
-            renderer: gl.getParameter(gl.RENDERER),
-            version: gl.getParameter(gl.VERSION),
-            renderTime: Math.round(renderTime * 1000),
-            pixelHash: pixelHash
-        }
-    }
-
-    /**
-     * Generates proof based on timing
-     */
-    function generateTimingProof () {
-        const measurements = []
-
-        // We measure the accuracy of timers
-        for (let i = 0; i < 10; i++) {
-            const start = performance.now()
-
-            // Increase the computational work to ensure measurable times
+            // Add computational work to ensure render time is detectable
             let sum = 0
-            for (let j = 0; j < 5000; j++) {
-                sum += Math.sin(j) * Math.cos(j)
+            for (let i = 0; i < 5000; i++) {
+                sum += Math.sin(i) * Math.cos(i)
             }
 
-            const duration = performance.now() - start
-            measurements.push({
-                iteration: i,
-                duration: Math.round(duration * 10000), // Tenth fractions of the microseconds
-                result: Math.round(sum * 1000)
-            })
-        }
+            const renderTime = performance.now() - startTime
 
-        // We analyze the stability of measurements
-        const durations = measurements.map(m => m.duration)
-        const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length
-        const variance = durations.reduce((sum, d) => sum + Math.pow(d - avgDuration, 2), 0) / durations.length
+            // Read pixels
+            const pixels = new Uint8Array(64 * 64 * 4)
+            gl.readPixels(0, 0, 64, 64, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
 
-        return {
-            measurements,
-            avgDuration: Math.round(avgDuration),
-            variance: Math.round(variance),
-            clockResolution: getClockResolution()
-        }
-    }
+            const pixelData = Array.from(pixels).join(',').substring(0, 1000)
+            const pixelHash = binding + await fpSimpleHash(pixelData)
 
-    /**
-     * Simple hash function for string
-     * @param {string} str - String to hash
-     * @returns {string} - Simple hash in hex format
-     */
-    function simpleHash (str) {
-        let hash = 0
-        const sample = typeof str === 'string' ? str : String(str)
-        // Take no more than 10000 characters for speed
-        const processStr = sample.substring(0, 10000)
-
-        // Add timestamp to the hash calculation
-        const timestamp = Date.now()
-        const timestampedString = processStr + timestamp
-
-        for (let i = 0; i < timestampedString.length; i++) {
-            const char = timestampedString.charCodeAt(i)
-            hash = ((hash << 5) - hash) + char
-            hash = hash & hash // Convert to 32-bit integer
-        }
-        return Math.abs(hash).toString(16)
-    }
-
-    /**
-     * Determines the clock resolution
-     */
-    function getClockResolution () {
-        // Determine the timer resolution
-        let resolution = 0
-        let lastTime = performance.now()
-
-        for (let i = 0; i < 1000; i++) {
-            const currentTime = performance.now()
-            const diff = currentTime - lastTime
-            if (diff > 0 && (resolution === 0 || diff < resolution)) {
-                resolution = diff
+            return {
+                vendor: gl.getParameter(gl.VENDOR),
+                renderer: gl.getParameter(gl.RENDERER),
+                version: gl.getParameter(gl.VERSION),
+                renderTime: Math.round(renderTime * 1000),
+                pixelHash: pixelHash
             }
-            lastTime = currentTime
         }
 
-        return Math.round(resolution * 10000)
-    }
+        /**
+         * Generates proof based on timing
+         */
+        async function fpGenerateTimingProof (binding) {
+            const measurements = []
 
-    /**
-     * Generates evidence based on performance
-     */
-    function generatePerformanceProof () {
-        const startTime = performance.now()
+            // We measure the accuracy of timers
+            for (let i = 0; i < 10; i++) {
+                const start = performance.now()
 
-        // JavaScript performance test
-        const results = []
+                // Increase the computational work to ensure measurable times
+                let sum = 0
+                for (let j = 0; j < 5000; j++) {
+                    sum += Math.sin(j) * Math.cos(j)
+                }
 
-        // Test 1: Object creation
-        let objTest = performance.now()
-        const objects = []
-        // Increase the workload to ensure measurable times
-        for (let i = 0; i < 30000; i++) {
-            objects.push({ id: i, value: Math.random() })
+                const duration = performance.now() - start
+                measurements.push({
+                    iteration: i,
+                    duration: Math.round(duration * 10000), // Tenth fractions of the microseconds
+                    result: Math.round(sum * 1000)
+                })
+            }
+
+            // We analyze the stability of measurements
+            const durations = measurements.map(m => m.duration)
+            const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length
+            const variance = durations.reduce((sum, d) => sum + Math.pow(d - avgDuration, 2), 0) / durations.length
+
+            // Create hash bound to the challenge
+            const measurementData = measurements.map(m => `${m.iteration}:${m.duration}:${m.result}`).join('|')
+            const timingHash = binding + await fpSimpleHash(measurementData + avgDuration + variance)
+
+            return {
+                measurements,
+                avgDuration: Math.round(avgDuration),
+                variance: Math.round(variance),
+                clockResolution: await fpGetClockResolution(),
+                timingHash: timingHash
+            }
         }
-        results.push({ test: 'object_creation', time: performance.now() - objTest })
 
-        // Test 2: Array sorting
-        let sortTest = performance.now()
-        objects.sort((a, b) => a.value - b.value)
-        results.push({ test: 'array_sort', time: performance.now() - sortTest })
+        /**
+         * Simple hash function for string
+         * @param {string} str - String to hash
+         * @returns {Promise<string>} - Promise resolving to simple hash in hex format
+         */
+        async function fpSimpleHash (str) {
+            let hash = 0
+            const sample = typeof str === 'string' ? str : String(str)
+            // Take no more than 10000 characters for speed
+            const processStr = sample.substring(0, 10000)
 
-        // Test 3: Regular expressions
-        let regexTest = performance.now()
-        const text = 'This is a test string with numbers 123 and symbols !@#$%'
-        // Increase iterations for better measurement
-        for (let i = 0; i < 5000; i++) {
-            /\b\d+\b/g.test(text)
+            // Add timestamp to the hash calculation
+            const timestamp = Date.now()
+            const timestampedString = processStr + timestamp
+
+            for (let i = 0; i < timestampedString.length; i++) {
+                const char = timestampedString.charCodeAt(i)
+                hash = ((hash << 5) - hash) + char
+                hash = hash & hash // Convert to 32-bit integer
+            }
+            return Math.abs(hash).toString(16)
         }
-        results.push({ test: 'regex', time: performance.now() - regexTest })
 
-        // Information about memory (if available)
-        const memoryInfo = window.performance && window.performance.memory ? {
-            usedJSHeapSize: window.performance.memory.usedJSHeapSize,
-            totalJSHeapSize: window.performance.memory.totalJSHeapSize,
-            jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit
-        } : null
+        /**
+         * Determines the clock resolution
+         * @returns {Promise<number>} - Promise resolving to clock resolution
+         */
+        async function fpGetClockResolution () {
+            // Determine the timer resolution
+            let resolution = 0
+            let lastTime = performance.now()
 
-        return {
-            results: results.map(r => ({
-                test: r.test,
-                time: Math.round(r.time * 1000)
-            })),
-            totalTime: Math.round((performance.now() - startTime) * 1000),
-            memoryInfo,
-            hardwareConcurrency: navigator.hardwareConcurrency || null
+            for (let i = 0; i < 1000; i++) {
+                const currentTime = performance.now()
+                const diff = currentTime - lastTime
+                if (diff > 0 && (resolution === 0 || diff < resolution)) {
+                    resolution = diff
+                }
+                lastTime = currentTime
+            }
+
+            return Math.round(resolution * 10000)
         }
-    }
 
-    /**
-     * Generates evidence based on CSS
-     */
-    function generateCSSProof () {
-        // We create an invisible element for CSS testing
-        const testDiv = document.createElement('div')
-        testDiv.style.position = 'absolute'
-        testDiv.style.left = '-9999px'
-        testDiv.style.visibility = 'hidden'
+        /**
+         * Generates evidence based on performance
+         * @returns {Promise<Object>} - Promise resolving to performance proof
+         */
+        async function fpGeneratePerformanceProof (binding) {
+            const startTime = performance.now()
 
-        // Using more complex CSS rules that will require more rendering work
-        testDiv.innerHTML = `
+            // JavaScript performance test
+            const results = []
+
+            // Test 1: Object creation
+            let objTest = performance.now()
+            const objects = []
+            // Increase the workload to ensure measurable times
+            for (let i = 0; i < 30000; i++) {
+                objects.push({ id: i, value: Math.random() })
+            }
+            results.push({ test: 'object_creation', time: performance.now() - objTest })
+
+            // Test 2: Array sorting
+            let sortTest = performance.now()
+            objects.sort((a, b) => a.value - b.value)
+            results.push({ test: 'array_sort', time: performance.now() - sortTest })
+
+            // Test 3: Regular expressions
+            let regexTest = performance.now()
+            const text = 'This is a test string with numbers 123 and symbols !@#$%'
+            // Increase iterations for better measurement
+            for (let i = 0; i < 5000; i++) {
+                /\b\d+\b/g.test(text)
+            }
+            results.push({ test: 'regex', time: performance.now() - regexTest })
+
+            // Information about memory (if available)
+            const memoryInfo = window.performance && window.performance.memory ? {
+                usedJSHeapSize: window.performance.memory.usedJSHeapSize,
+                totalJSHeapSize: window.performance.memory.totalJSHeapSize,
+                jsHeapSizeLimit: window.performance.memory.jsHeapSizeLimit
+            } : null
+
+            const totalTime = performance.now() - startTime
+
+            // Create performance hash bound to the challenge
+            const performanceData = results.map(r => `${r.test}:${r.time}`).join('|') +
+                `|total:${totalTime}|concurrency:${navigator.hardwareConcurrency || 'null'}`
+            const performanceHash = binding + await fpSimpleHash(performanceData)
+
+            return {
+                results: results.map(r => ({
+                    test: r.test,
+                    time: Math.round(r.time * 1000)
+                })),
+                totalTime: Math.round(totalTime * 1000),
+                memoryInfo,
+                hardwareConcurrency: navigator.hardwareConcurrency || null,
+                performanceHash: performanceHash
+            }
+        }
+
+        /**
+         * Generates evidence based on CSS
+         * @returns {Promise<Object>} - Promise resolving to CSS proof
+         */
+        async function fpGenerateCSSProof (binding) {
+            const startTime = performance.now()
+
+            // We create an invisible element for CSS testing
+            const testDiv = document.createElement('div')
+            testDiv.style.position = 'absolute'
+            testDiv.style.left = '-9999px'
+            testDiv.style.visibility = 'hidden'
+
+            // Using more complex CSS rules that will require more rendering work
+            testDiv.innerHTML = `
         <div style="transform: rotate(45deg) scale(1.5); filter: blur(2px) brightness(150%); transition: all 0.1s ease; animation: spin 0.5s linear;">
             <span style="font-family: 'Arial', sans-serif; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; background: linear-gradient(to right, red, blue);">Test Content with More Text</span>
         </div>
     `
 
-        document.body.appendChild(testDiv)
+            document.body.appendChild(testDiv)
 
-        // Force layout recalculation and repaint
-        const forceReflow = testDiv.offsetHeight
+            // Force layout recalculation and repaint
+            const forceReflow = testDiv.offsetHeight
 
-        // Add multiple style updates to ensure CSS operations take time
-        for (let i = 0; i < 5; i++) {
-            testDiv.firstElementChild.style.transform = `rotate(${45 + i}deg) scale(${1.5 + i * 0.1})`
-            // Force reflow
-            const dummy = testDiv.offsetHeight
-        }
+            // Add multiple style updates to ensure CSS operations take time
+            for (let i = 0; i < 5; i++) {
+                testDiv.firstElementChild.style.transform = `rotate(${45 + i}deg) scale(${1.5 + i * 0.1})`
+                // Force reflow
+                const dummy = testDiv.offsetHeight
+            }
 
-        const startTime = performance.now()
+            // We measure the properties after rendering
+            const computedStyle = window.getComputedStyle(testDiv.firstElementChild)
 
-        // We measure the properties after rendering
-        const computedStyle = window.getComputedStyle(testDiv.firstElementChild)
+            // Add a small delay to ensure CSS operations are measurable
+            let sum = 0
+            for (let i = 0; i < 2000; i++) {
+                sum += Math.sin(i) * Math.cos(i)
+            }
 
-        // Add a small delay to ensure CSS operations are measurable
-        let sum = 0
-        for (let i = 0; i < 2000; i++) {
-            sum += Math.sin(i) * Math.cos(i)
-        }
+            const renderTime = performance.now() - startTime
 
-        const measurements = {
-            transformMatrix: computedStyle.transform,
-            filterEffects: computedStyle.filter,
-            computedWidth: testDiv.offsetWidth,
-            computedHeight: testDiv.offsetHeight,
-            renderTime: Math.round((performance.now() - startTime) * 1000)
-        }
+            const measurements = {
+                transformMatrix: computedStyle.transform,
+                filterEffects: computedStyle.filter,
+                computedWidth: testDiv.offsetWidth,
+                computedHeight: testDiv.offsetHeight,
+                renderTime: Math.round(renderTime * 1000)
+            }
 
-        document.body.removeChild(testDiv)
+            document.body.removeChild(testDiv)
 
-        return measurements
-    }
+            // Create CSS hash bound to the challenge
+            const cssData = `${measurements.transformMatrix}|${measurements.filterEffects}|${measurements.computedWidth}x${measurements.computedHeight}|${measurements.renderTime}`
+            const cssHash = binding + await fpSimpleHash(cssData)
 
-    /**
-     * Simple hash function for string
-     */
-    function simpleHash (str) {
-        let hash = 0
-        const sample = typeof str === 'string' ? str : String(str)
-        // Take no more than 10000 characters for speed
-        const processStr = sample.substring(0, 10000)
-
-        // Add timestamp to the hash calculation
-        const timestamp = Date.now()
-        const timestampedString = processStr + timestamp
-
-        for (let i = 0; i < timestampedString.length; i++) {
-            const char = timestampedString.charCodeAt(i)
-            hash = ((hash << 5) - hash) + char
-            hash = hash & hash // Convert to 32-bit integer
-        }
-        return Math.abs(hash).toString(16)
-    }
-
-    /**
-     * Adds mathematical Challenge
-     */
-    function solveMathChallenge (problem) {
-        if (!problem) return null
-
-        // A simple mathematical task that is difficult to solve a script
-        let result = problem.seed
-        for (let i = 0; i < problem.iterations; i++) {
-            result = (result * problem.multiplier + problem.addend) % problem.modulus
-        }
-        return result
-    }
-
-    (function () {
-        let scriptLoaded = false
-
-        const challengeData = __CHALLENGE_DATA___
-        const cookieName = '__COOKIE__'
-
-        function loadFingerprintJS () {
-            if (scriptLoaded) return
-            scriptLoaded = true
-
-            const script = document.createElement('script')
-            script.src = 'https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js'
-            script.async = true
-            document.head.appendChild(script)
-            script.onload = () => {
-                initFingerprintJS()
+            return {
+                ...measurements,
+                cssHash: cssHash
             }
         }
 
-        function initFingerprintJS () {
-            const fpPromise = window.FingerprintJS.load()
-            fpPromise
-                .then(fp => fp.get())
-                .then(result => {
-                    const visitorId = result.visitorId
-                    return extractClientData(result.components)
-                        .then(clientData => {
-                            validateClient(visitorId, clientData)
-                        })
-                })
-                .catch(error => {
-                    console.error('FingerprintJS error:', error)
-                    document.getElementById('errorMessage').classList.remove('d-none')
-                    document.getElementById('status').textContent = 'Verification failed'
-                })
-        }
-
-        function extractClientData (components) {
+        async function fpExtractClientData (components) {
             // Extract data from FingerprintJS components and add additional browser information
             const data = {}
 
@@ -599,59 +503,16 @@
 
             // Additional security checks
             data.webdriver = !!window.navigator.webdriver
-            data.extensions = getInstalledExtensions()
+            data.extensions = await fpGetInstalledExtensions()
 
-            return generateUnfakeableProofs(challengeData)
-                .then(browserProofs => {
-                    // Add unfakeable browser evidence
-                    data.browserProofs = browserProofs
+            // Add unfakeable browser evidence
+            data.browserProofs = await fpGenerateUnfakeableProofs(challengeData.proofSalt)
 
-                    // Add timestamp to the proofs for freshness validation
-                    data.browserProofs.timestamp = Date.now()
+            // Add timestamp to the proofs for freshness validation
+            data.browserProofs.timestamp = Date.now()
 
-                    // Add challenge binding nonce
-                    data.browserProofs.nonce = challengeData.proofSalt.substring(0, 8)
-
-                    // Temporary label for checking the generation speed
-                    data.proofGenerationTime = performance.now()
-
-                    return data
-                })
-                .catch(error => {
-                    console.error('Error generating browser proofs:', error)
-                    // Temporary label for checking the generation speed
-                    data.proofGenerationTime = performance.now()
-                    return data
-                })
-        }
-
-        function getInstalledExtensions () {
-            // Attempt to detect installed browser extensions
-            const extensions = []
-
-            // Check for popular extensions via their CSS or JS
-            const extensionChecks = [
-                { name: 'AdBlock', check: () => !!document.querySelector('script[src*="adblock"]') },
-                { name: 'uBlock', check: () => !!window.uBlockOrigin },
-                { name: 'Ghostery', check: () => !!window.Ghostery }
-            ]
-
-            extensionChecks.forEach(ext => {
-                try {
-                    if (ext.check()) {
-                        extensions.push(ext.name)
-                    }
-                } catch (e) {
-                    // Ignore errors
-                }
-            })
-
-            return extensions
-        }
-
-        function submitChallenge (fingerprint, data) {
-            // We solve a mathematical problem
-            const mathSolution = solveMathChallenge(challengeData)
+            // Temporary label for checking the generation speed
+            data.browserProofs.generationTime = performance.now()
 
             // Ensure browser proofs have a timestamp
             if (data.browserProofs && !data.browserProofs.timestamp) {
@@ -659,75 +520,234 @@
             }
 
             // Ensure we have challenge binding
-            if (data.browserProofs && !data.browserProofs.nonce) {
+            if (data.browserProofs && !data.browserProofs.nonce && challengeData.proofSalt) {
                 data.browserProofs.nonce = challengeData.proofSalt.substring(0, 8)
             }
 
-            const payload = {
-                fingerprint: fingerprint,
-                data: data,
-                challenge: {
-                    id: challengeData.id,
-                    solution: mathSolution,
-                    timestamp: Date.now()
-                }
-            }
+            return data
+        }
 
-            const xhr = new XMLHttpRequest()
-            xhr.open('POST', '/__under_attack_challenge', true)
-            xhr.setRequestHeader('Content-Type', 'application/json')
-            xhr.onreadystatechange = function () {
-                if (xhr.readyState === 4) {
-                    if (xhr.status === 200) {
-                        const response = JSON.parse(xhr.responseText)
-                        if (response.success) {
-                            // setCookie(cookieName, response.token, 30)
-                            // window.location.reload()
-                        } else {
-                            document.getElementById('errorMessage').classList.remove('d-none')
-                            document.getElementById('status').textContent = 'Verification failed'
-                        }
-                    } else {
-                        document.getElementById('errorMessage').classList.remove('d-none')
-                        document.getElementById('status').textContent = 'Server error'
+        async function fpGetInstalledExtensions () {
+            // Attempt to detect installed browser extensions
+            const extensions = []
+
+            // Check for popular extensions via their CSS or JS
+            const extensionChecks = [
+                {
+                    name: 'AdBlock',
+                    check: async () => !!document.querySelector('script[src*="adblock"]') || !!document.querySelector('#ad_container')
+                },
+                {
+                    name: 'uBlock',
+                    check: async () => !!window.uBlockOrigin || !!document.getElementById('ublock0-wrapper')
+                },
+                {
+                    name: 'Ghostery',
+                    check: async () => !!window.Ghostery || !!window.__GHOSTERY || !!document.querySelector('.ghostery-tracker')
+                },
+                {
+                    name: 'AdBlock Plus',
+                    check: async () => !!document.getElementById('abd-ad-container') || !!window.adblockDetect
+                },
+                {
+                    name: 'Privacy Badger',
+                    check: async () => !!window.PRIVACY_BADGER_VERSION || !!document.querySelector('[data-privacy-badger]')
+                },
+                { name: 'LastPass', check: async () => !!window.LastPass || !!document.querySelector('#hud_lastpass') },
+                {
+                    name: 'MetaMask',
+                    check: async () => !!window.ethereum || !!window.web3 || !!document.querySelector('.metamask-extension')
+                },
+                {
+                    name: 'Grammarly',
+                    check: async () => !!document.querySelector('grammarly-desktop-integration') || !!window.Grammarly
+                },
+                {
+                    name: 'DuckDuckGo',
+                    check: async () => !!window.duckduckgo || !!document.querySelector('.duckduckgo-extension')
+                },
+                {
+                    name: 'Honey',
+                    check: async () => !!window.HONEY_EXTENSIONS || !!document.querySelector('.joinhoney')
+                },
+                {
+                    name: 'Bitwarden',
+                    check: async () => !!window._BITWARDEN_EXTENSION || !!document.querySelector('#bitwarden-sidebar')
+                },
+                {
+                    name: 'OnePass',
+                    check: async () => !!document.querySelector('.onepassword-extension') || !!window._1PasswordInlineIcon
+                },
+                {
+                    name: 'Dashlane',
+                    check: async () => !!window.DASHLANE_READY_STATUS || !!document.querySelector('.dashlane-extension-content')
+                },
+                {
+                    name: 'Avast',
+                    check: async () => !!document.querySelector('script[src*="extensions/avast"]') || !!window.avast
+                },
+                {
+                    name: 'Kaspersky',
+                    check: async () => !!window.kaspersky || !!document.querySelector('.kaspersky-lab-icon')
+                },
+                {
+                    name: 'Norton',
+                    check: async () => !!document.querySelector('script[src*="norton"]') || !!window.nortonIcon
+                },
+                {
+                    name: 'McAfee',
+                    check: async () => !!document.querySelector('script[src*="mcafee"]') || !!window.McAfeeSecurityScanner
+                },
+                {
+                    name: 'Evernote',
+                    check: async () => !!window.evernoteClip || !!document.querySelector('.evernote-extension')
+                },
+                {
+                    name: 'Pinterest',
+                    check: async () => !!document.querySelector('script[src*="pinterest"]') || !!window._pinsOnHover
+                },
+                { name: 'Pocket', check: async () => !!window.Pocket || !!document.querySelector('.pocket-extension') },
+                { name: 'Google Translate', check: async () => !!window.google && !!window.google.translate },
+                {
+                    name: 'RoboForm',
+                    check: async () => !!window.RoboForm || !!document.querySelector('.roboform-extension')
+                },
+                { name: 'Adguard', check: async () => !!window.adguard || !!document.querySelector('.adguard-alert') },
+                { name: 'Dark Reader', check: async () => !!document.querySelector('meta[name="darkreader"]') },
+                { name: 'Momentum', check: async () => !!document.querySelector('#momentum-dashboard') }
+            ]
+
+            for (const ext of extensionChecks) {
+                try {
+                    if (await ext.check()) {
+                        extensions.push(ext.name)
                     }
+                } catch (e) {
+                    // Ignore errors
                 }
             }
-            xhr.send(JSON.stringify(payload))
+
+            return extensions
         }
 
-        function updateProgress (percent) {
-            document.getElementById('progressBar').style.width = percent + '%'
+
+        const challengeData = __CHALLENGE_DATA___
+        const cookieName = '__COOKIE__'
+
+        let scriptLoaded = false
+        async function fpLoadFingerprintJS () {
+            if (scriptLoaded) return
+            scriptLoaded = true
+
+            const script = document.createElement('script')
+            script.src = 'https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js'
+            script.async = true
+            document.head.appendChild(script)
+
+            return new Promise((resolve) => {
+                script.onload = () => {
+                    // fpInitFingerprintJS()
+                    resolve()
+                }
+            })
         }
 
-        function validateClient (fingerprint, data) {
-            if (!fingerprint || !data) {
+        async function fpInitFingerprintJS () {
+            try {
+                const fp = await window.FingerprintJS.load()
+                const result = await fp.get()
+                const visitorId = result.visitorId
+                const clientData = await fpExtractClientData(result.components)
+
+                if(!visitorId || !clientData) {
+                    throw new Error('FingerprintJS did not return valid data')
+                }
+
+                return clientData;
+            } catch (error) {
+                console.error('FingerprintJS error:', error)
                 document.getElementById('errorMessage').classList.remove('d-none')
                 document.getElementById('status').textContent = 'Verification failed'
-                return
             }
-
-            updateProgress(30)
-            document.getElementById('status').textContent = 'Verifying browser...'
-
-            setTimeout(() => {
-                updateProgress(60)
-                document.getElementById('status').textContent = 'Generating security tokens...'
-
-                setTimeout(() => {
-                    updateProgress(90)
-                    document.getElementById('status').textContent = 'Completing verification...'
-
-                    setTimeout(() => {
-                        updateProgress(100)
-                        submitChallenge(fingerprint, data)
-                    }, 500)
-                }, 500)
-            }, 500)
         }
 
-        window.onload = function () {
-            loadFingerprintJS()
+        function setCookie (name, value, days) {
+            const date = new Date()
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000))
+            let expires = 'expires=' + date.toUTCString()
+            document.cookie = name + '=' + value + ';' + expires + ';path=/;SameSite=Lax'
+        }
+
+        async function pageSubmitData(fingerprint) {
+            const payload = {
+                fingerprint
+            }
+
+            try {
+                const response = await fetch('/__under_attack_challenge', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+
+                if (response.ok) {
+                    const responseData = await response.json()
+                    if (responseData.success) {
+                        setCookie(cookieName, responseData.token, 30)
+                        window.location.reload()
+                    } else {
+                        document.getElementById('errorMessage').classList.remove('d-none')
+                        document.getElementById('status').textContent = 'Verification failed'
+                    }
+                } else {
+                    document.getElementById('errorMessage').classList.remove('d-none')
+                    document.getElementById('status').textContent = 'Server error'
+                }
+            } catch (error) {
+                console.error('Submit error:', error)
+                throw new Error('Network error: ' + error.message)
+
+            }
+        }
+
+        async function challengeUpdateProgress (percent, text) {
+            document.getElementById('progressBar').style.width = percent + '%'
+            document.getElementById('status').textContent = text
+            return Promise.resolve()
+        }
+
+        async function validateClient() {
+
+
+            await challengeUpdateProgress(30, 'Verifying browser...');
+            const fingerprint = await fpInitFingerprintJS()
+
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            await challengeUpdateProgress(60, 'Generating security tokens...')
+
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            await challengeUpdateProgress(95, 'Completing verification...')
+            await pageSubmitData(fingerprint)
+
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            await challengeUpdateProgress(100)
+
+        }
+
+        window.onload = async function () {
+            try {
+                await fpLoadFingerprintJS();
+                await validateClient();
+            } catch (error) {
+                console.error('Loading error:', error)
+                document.getElementById('errorMessage').classList.remove('d-none')
+                document.getElementById('status').textContent = 'Loading failed'
+            }
         }
     })()
 </script>

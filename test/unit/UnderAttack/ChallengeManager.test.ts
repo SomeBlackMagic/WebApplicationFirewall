@@ -17,14 +17,14 @@ describe('ChallengeManager', () => {
 
     describe('generateChallengeProblem', () => {
         it('should generate a challenge problem with unique id', () => {
-            const challenge1 = challengeManager.generateChallengeProblem();
-            const challenge2 = challengeManager.generateChallengeProblem();
+            const challenge1 = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
+            const challenge2 = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
 
             expect(challenge1.id).not.toBe(challenge2.id);
         });
 
         it('should generate correct properties for the challenge problem', () => {
-            const challenge = challengeManager.generateChallengeProblem();
+            const challenge = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
 
             expect(challenge).toHaveProperty('id');
             expect(challenge).toHaveProperty('seed');
@@ -37,7 +37,7 @@ describe('ChallengeManager', () => {
 
     describe('validateChallenge', () => {
         it('should return true for a valid challenge solution', () => {
-            const challenge = challengeManager.generateChallengeProblem();
+            const challenge = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
 
             let result = challenge.seed;
             for (let i = 0; i < challenge.iterations; i++) {
@@ -53,12 +53,12 @@ describe('ChallengeManager', () => {
         });
 
         it('should return false if challenge id is invalid', () => {
-            const challenge = challengeManager.generateChallengeProblem();
+            const challenge = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
             expect(challengeManager.validateChallenge({id: 'invalid', solution: 12345})).toBe(false);
         });
 
         it('should return false for an expired challenge', () => {
-            const challenge = challengeManager.generateChallengeProblem();
+            const challenge = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
 
             let result = challenge.seed;
             for (let i = 0; i < challenge.iterations; i++) {
@@ -76,7 +76,7 @@ describe('ChallengeManager', () => {
         });
 
         it('should return false for an incorrect solution', () => {
-            const challenge = challengeManager.generateChallengeProblem();
+            const challenge = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
             const incorrectSolution = {id: challenge.id, solution: 99999};
 
             expect(challengeManager.validateChallenge(incorrectSolution)).toBe(false);
@@ -85,8 +85,8 @@ describe('ChallengeManager', () => {
 
     describe('cleanupChallenges', () => {
         it('should remove expired challenges from the storage', () => {
-            const challenge1 = challengeManager.generateChallengeProblem();
-            const challenge2 = challengeManager.generateChallengeProblem();
+            const challenge1 = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
+            const challenge2 = challengeManager.generateChallengeProblem('127.0.0.1', '123abc456');
 
             // Manually expire challenge1
             jest.spyOn(Date, 'now').mockImplementationOnce(() => Date.now() + 300001);

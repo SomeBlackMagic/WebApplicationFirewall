@@ -5,14 +5,14 @@ import * as crypto from 'crypto';
 import {Singleton} from "@waf/Utils/Singleton";
 import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
 import {FingerprintValidator, IFingerprintValidatorConfig} from "@waf/UnderAttack/FingerprintValidator";
-import {BotDetector, IBotDetectorConfig} from "@waf/UnderAttack/BotDetector";
+import {BotDetector} from "@waf/UnderAttack/BotDetector";
 import {ChallengeManager, IChallengeManagerConfig} from "@waf/UnderAttack/ChallengeManager";
-import {IProofRateLimiterConfig, ProofRateLimiter} from "@waf/UnderAttack/ProofRateLimiter";
 import {isString, merge} from 'lodash';
 import bodyParser from "body-parser";
 import {ContentLoader} from "@waf/Utils/ContentLoader";
 import {UnderAttackConditionConfig, UnderAttackConditions} from "@waf/UnderAttack/UnderAttackConditions";
 import {Metrics} from "@waf/Metrics/Metrics";
+import fs from "fs";
 
 export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUnderAttackConfig]> {
     private challengeHtml: string;
@@ -23,7 +23,6 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         private readonly botDetector?: BotDetector,
         private readonly challengeManager?: ChallengeManager,
         private readonly conditions?: UnderAttackConditions,
-        private readonly proofRateLimiter?: ProofRateLimiter,
         private readonly log?: LoggerInterface,
         private readonly metrics?: UnderAttackMetrics,
     ) {
@@ -32,15 +31,10 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             return;
         }
 
-        this.config = merge<object|IUnderAttackConfig, IUnderAttackConfig>({
+        this.config = merge<object | IUnderAttackConfig, IUnderAttackConfig>({
             enabled: false,
             challengeDurationMs: 1000 * 60 * 30,
             conditions: [],
-            botDetection: {
-                enabled: false,
-                aiModel: 'basic',
-                blockSuspiciousUA: false,
-            },
             fingerprintChecks: {
                 enabled: false,
                 minScore: 0.5,
@@ -57,34 +51,33 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
         }, config);
 
-        if(!this.log) {
+        if (!this.log) {
             this.log = Log.instance.withCategory('app.UnderAttack');
         }
 
-        if(!this.metrics) {
+        if (!this.metrics) {
             UnderAttackMetrics.build(Metrics.get());
             this.metrics = UnderAttackMetrics.get();
         }
 
-        if(!this.fingerprintValidator) {
+        if (!this.fingerprintValidator) {
             this.fingerprintValidator = new FingerprintValidator(config.fingerprintChecks);
         }
 
-        if(!this.botDetector) {
-            this.botDetector = new BotDetector(config.botDetection);
-        }
-
-        if(!this.challengeManager) {
+        if (!this.challengeManager) {
             this.challengeManager = new ChallengeManager(this.config.challengeManager);
         }
 
-        if(this.config.conditions.length > 0 && !conditions) {
+
+        // if(!this.botDetector) {
+        //     this.botDetector = new BotDetector(config.botDetection);
+        // }
+
+
+        if (this.config.conditions.length > 0 && !conditions) {
             this.conditions = new UnderAttackConditions(this.config.conditions);
         }
 
-        if(!this.proofRateLimiter) {
-            this.proofRateLimiter = new ProofRateLimiter(this.config.proofRateLimiter);
-        }
 
         this.loadChallengeHtml();
     }
@@ -107,21 +100,21 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             return true;
         }
 
-        if(this.conditions) {
+        if (this.conditions) {
             const result = await this.conditions.use(clientIp, clientIp, country, req, city);
-            if(!result) {
+            if (!result) {
                 return true;
             }
         }
 
-        if(
+        if (
             req.method === 'POST' &&
             req.url === '/__under_attack_challenge'
         ) {
             return new Promise((resolve) => {
                 bodyParser.json()(req, res, async (err) => {
                     if (err) {
-                        res.status(400).json({ success: false, message: 'Invalid JSON' });
+                        res.status(400).json({success: false, message: 'Invalid JSON'});
                         resolve(true);
                         return;
                     }
@@ -149,8 +142,8 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             return true
         }
 
-        // Record the beginning of a Challenge to control time
-        this.botDetector.recordChallengeStart(clientIp);
+        // // Record the beginning of a Challenge to measure response time
+        // this.botDetector.recordChallengeStart(clientIp);
 
         // Display the challenge page
         this.metrics.incrementChallengePageShown();
@@ -172,7 +165,7 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
     private checkBypassHeader(req: Request): boolean {
         return this.config.bypassHeaders.some(header => {
-            if(req.header(header.name) === header.value) {
+            if (req.header(header.name) === header.value) {
                 return true;
             }
         })
@@ -204,17 +197,17 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
     protected async handleChallengeRequest(request: Request, response: Response, clientIp: string, requestId: string): Promise<Response> {
 
         const fingerprint = request.body?.fingerprint;
-        const data = request.body?.data;
-        const challenge = request.body?.challenge;
+        // const data = request.body?.data;
+        // const challenge = request.body?.challenge;
 
-        if (!fingerprint || !data) {
+        if (!fingerprint) {
             this.metrics.incrementFailedChallengeCount();
             return response.status(400).json({success: false, message: 'Invalid request'});
         }
 
-        const result = this.runValidationChecks(fingerprint, data, challenge, clientIp, requestId, request);
+        const result = this.runValidationChecks(fingerprint, clientIp, requestId, request);
 
-        if(isString(result)) {
+        if (isString(result)) {
             return response.status(403).json({success: false, message: result});
         }
 
@@ -240,63 +233,69 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         return `${data}.${signature}`;
     }
 
-    protected runValidationChecks(fingerprint:any, data:any, challenge:any, clientIp:any, requestId:any, request: Request): string|true {
+    protected runValidationChecks(fingerprint: any, clientIp: any, requestId: any, request: Request): string | true {
         // Check the proof generation time
-        if (data.proofGenerationTime && data.browserProofs) {
-            const now = Date.now();
-            const proofTime = now - data.proofGenerationTime;
 
-            // Record proof generation time in metrics
-            this.metrics.recordProofGenerationTime(proofTime);
-
-            // Proof must take some time to generate (real execution)
-            if (proofTime < 100) { // Less than 50 ms is suspicious
-                this.log.warn('Proof generated too quickly', {
-                    time: proofTime
-                });
-                this.metrics.incrementFailedChallengeCount();
-                return 'Invalid proof timing';
-            }
-        }
-
-        // Check the server challenge
-        let challengeSolution = null;
-        if (challenge) {
-            challengeSolution = this.challengeManager.validateAndGetChallenge(challenge);
-            if (!challengeSolution) {
-                this.log.warn('Challenge validation failed');
-                this.metrics.incrementFailedChallengeCount();
-                return 'Challenge validation failed';
-            }
-        } else {
-            this.log.warn('Missing challenge');
+        if (!fingerprint || typeof fingerprint !== 'object') {
+            this.log.warn('Invalid fingerprint data', {fingerprint});
             this.metrics.incrementFailedChallengeCount();
-            return 'Missing challenge';
-        }
-
-        // Rate limiting check for browser proofs
-        if (data.browserProofs && !this.proofRateLimiter.validateProofUniqueness(data.browserProofs, clientIp)) {
-            this.log.warn('Browser proof rate limiting triggered', {requestId, clientIp});
-            this.metrics.incrementRejectedCount();
-            this.metrics.incrementProofRateLimited();
-            return 'Challenge failed';
+            return 'Invalid fingerprint data';
         }
 
         // Check the browser fingerprint
-        const fingerprintScore = this.fingerprintValidator.validate(fingerprint, {
-            ...data,
-            requestId: requestId,
-            challengeId: challenge.id,
-            proofSalt: challengeSolution.proofSalt
-        });
+        const fingerprintScore = this.fingerprintValidator.validate(fingerprint, requestId, '', '');
 
         // Bot check
-        const botScore = this.botDetector.detect(request, data, clientIp);
+        // const botScore = this.botDetector.detect(request, data, clientIp);
 
-        if (fingerprintScore < this.config.fingerprintChecks.minScore || botScore) {
+        if (!fingerprintScore) {
             this.metrics.incrementRejectedCount();
             return 'Challenge failed';
         }
+
+
+        // fs.writeFileSync('test_' + Date.now() + '.json',);
+        // if (fingerprint.proofGenerationTime && fingerprint.browserProofs) {
+        //     const now = Date.now();
+        //     const proofTime = now - data.proofGenerationTime;
+        //
+        //     // Record proof generation time in metrics
+        //     this.metrics.recordProofGenerationTime(proofTime);
+        //
+        //     // Proof must take some time to generate (real execution)
+        //     if (proofTime < 100) { // Less than 50 ms is suspicious
+        //         this.log.warn('Proof generated too quickly', {
+        //             time: proofTime
+        //         });
+        //         this.metrics.incrementFailedChallengeCount();
+        //         return 'Invalid proof timing';
+        //     }
+        // }
+        //
+        // // Check the server challenge
+        // let challengeSolution = null;
+        // if (challenge) {
+        //     challengeSolution = this.challengeManager.validateAndGetChallenge(challenge);
+        //     if (!challengeSolution) {
+        //         this.log.warn('Challenge validation failed');
+        //         this.metrics.incrementFailedChallengeCount();
+        //         return 'Challenge validation failed';
+        //     }
+        // } else {
+        //     this.log.warn('Missing challenge');
+        //     this.metrics.incrementFailedChallengeCount();
+        //     return 'Missing challenge';
+        // }
+        //
+        // // Rate limiting check for browser proofs
+        // if (data.browserProofs && !this.proofRateLimiter.validateProofUniqueness(data.browserProofs, clientIp)) {
+        //     this.log.warn('Browser proof rate limiting triggered', {requestId, clientIp});
+        //     this.metrics.incrementRejectedCount();
+        //     this.metrics.incrementProofRateLimited();
+        //     return 'Challenge failed';
+        // }
+        //
+
 
         return true;
     }
@@ -313,11 +312,11 @@ export interface IUnderAttackConfig {
 
     fingerprintChecks?: IFingerprintValidatorConfig;
 
-    botDetection?: IBotDetectorConfig;
-
     challengeManager?: IChallengeManagerConfig,
 
-    proofRateLimiter?: IProofRateLimiterConfig,
+    // botDetection?: IBotDetectorConfig;
+
+    // proofRateLimiter?: IProofRateLimiterConfig,
 
     challengePage?: {
         title: string;
