@@ -82,8 +82,9 @@ describe('UnderAttackFingerPrint', () => {
             ]
         }
     });
-    testCases = testCases.filter((item: TestCaseData) => {
+    testCases = testCases.filter((item: TestCaseData, index: number) => {
         return true;
+        // return index === 6;
         // return item[1] && item[1]['userAgent'].includes('Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15');
     });
 

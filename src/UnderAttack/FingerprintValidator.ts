@@ -2,6 +2,8 @@ import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
 import {Log} from '@waf/Log';
 import {BrowserProofValidator, IBrowserProofs} from '@waf/UnderAttack/BrowserProofValidator';
 import {UnderAttackMetrics} from '@waf/UnderAttack/UnderAttackMetrics';
+import {DeviceDetector, DeviceInfo} from "@waf/UnderAttack/Utils/DeviceDetector";
+import {ValidateDisplay} from "@waf/UnderAttack/Utils/ValidateDisplay";
 
 
 export interface IFingerprintValidatorConfig {
@@ -9,7 +11,7 @@ export interface IFingerprintValidatorConfig {
     minScore: number
     storeData?: {
         enabled: boolean;
-        url?:string
+        url?: string
         user?: string
         pass?: string
 
@@ -39,12 +41,12 @@ export class FingerprintValidator {
     }
 
     /**
-     * Validates browser fingerprint and returns authenticity score (0-100)
+     * Validates browser fingerprint and determines if it passes the authenticity threshold
      * @param fingerprint Browser fingerprint object
      * @param requestId Request ID for logging
      * @param challengeId Challenge ID for cryptographic binding
      * @param proofSalt Salt for cryptographic binding
-     * @returns Authenticity score from 0 to 100
+     * @returns True if fingerprint passes validation, false otherwise
      */
     public validate(fingerprint: IBrowserFingerprint, requestId: string, challengeId?: string, proofSalt?: string): boolean {
 
@@ -55,13 +57,19 @@ export class FingerprintValidator {
 
         this.log.debug('Fingerprint validation score', {finalScore});
 
-        if(this.config.storeData.enabled) {
+        if (this.config.storeData.enabled) {
             this.storeFingerprintData(fingerprint, finalScore, requestId, challengeId);
         }
 
         return finalScore <= this.config.minScore;
     }
 
+    /**
+     * Calculates the authenticity score for a browser fingerprint
+     * @param fingerprint The complete fingerprint data
+     * @param requestId Request ID for logging purposes
+     * @returns Authenticity score from 0 to 100
+     */
     protected calculateScore(fingerprint: IBrowserFingerprint, requestId: string = ''): number {
         let score = 100;
 
@@ -70,8 +78,14 @@ export class FingerprintValidator {
         if (!fingerprint.userAgent || !fingerprint.language || !fingerprint.screenResolution) {
             this.log.debug('Missing core browser components', {fingerprint});
             this.metrics?.incrementMissingComponentsFailure();
-            score -= 15; // Reduced penalty to improve pass rate for real devices
+            score -= 15; // Reduced penalty to improve the pass rate for real devices
         }
+
+        // Analyze device type once
+        const deviceInfo: DeviceInfo = DeviceDetector.parse(fingerprint.userAgent, fingerprint.screenResolution.width, fingerprint.screenResolution.height);
+
+        const isMobile = deviceInfo.isMobile();
+
 
         // New check: validation of unforgeable browser proofs
         if (fingerprint.browserProofs) {
@@ -89,27 +103,13 @@ export class FingerprintValidator {
                 score = proofScore;
             }
         } else {
-            const isMobile = fingerprint.userAgent?.toLowerCase().includes('mobile') ||
-                fingerprint.userAgent?.toLowerCase().includes('iphone') ||
-                fingerprint.userAgent?.toLowerCase().includes('android');
             this.log.debug('Missing browser proofs', {requestId: requestId, isMobile});
             this.metrics?.incrementMissingProofsFailure();
             score -= isMobile ? 20 : 40; // Less penalty for mobile devices
         }
 
-        // Smart TV detection and special logging
-        const isSmartTV = fingerprint.userAgent?.toLowerCase().includes('smart-tv') ||
-            fingerprint.userAgent?.toLowerCase().includes('tizen') ||
-            fingerprint.userAgent?.toLowerCase().includes('tv safari') ||
-            (fingerprint.userAgent?.toLowerCase().includes('tv') && fingerprint.userAgent?.toLowerCase().includes('samsung')) ||
-            (fingerprint.userAgent?.toLowerCase().includes('tv') && fingerprint.userAgent?.toLowerCase().includes('lg')) ||
-            ((fingerprint.userAgent?.toLowerCase().includes('android') || fingerprint.userAgent?.toLowerCase().includes('androd')) && fingerprint.userAgent?.toLowerCase().includes('tv'));
-
-        if (isSmartTV) {
-            this.log.debug('Detected Smart TV device', {
-                userAgent: fingerprint.userAgent,
-                resolution: fingerprint.screenResolution
-            });
+        // Detected Smart TV earlier using browserProofValidator
+        if (deviceInfo.isSmartTV()) {
 
             // For Smart TV we apply special validation rules
             // Smart TVs often have limited browser capabilities
@@ -121,7 +121,7 @@ export class FingerprintValidator {
             }
 
             // Reducing requirements for Smart TV devices
-            if (this.checkScreenAnomalies(fingerprint)) {
+            if (this.checkScreenAnomalies(fingerprint, deviceInfo)) {
                 this.log.debug('Detected screen anomalies for Smart TV', {fingerprint});
                 score -= 5; // Lower penalty for Smart TV devices
             }
@@ -132,14 +132,14 @@ export class FingerprintValidator {
         }
 
         // Check browser fingerprint consistency
-        if (this.checkInconsistencies(fingerprint)) {
+        if (this.checkInconsistencies(fingerprint, deviceInfo)) {
             this.log.debug('Detected browser fingerprint inconsistencies', {fingerprint});
             this.metrics?.incrementInconsistenciesFailure();
             score -= 20;
         }
 
-        // Check for anomalies in screen fingerprint
-        if (this.checkScreenAnomalies(fingerprint)) {
+        // Check for anomalies in the screen fingerprint
+        if (this.checkScreenAnomalies(fingerprint, deviceInfo)) {
             this.log.debug('Detected screen anomalies', {fingerprint});
             this.metrics?.incrementScreenAnomaliesFailure();
             score -= 15;
@@ -150,7 +150,7 @@ export class FingerprintValidator {
         // may have limited WebGL/Canvas support
         if (!fingerprint.webglVendor && !fingerprint.canvasFingerprint) {
             this.log.debug('Missing WebGL and Canvas support', {fingerprint});
-            if (isSmartTV) {
+            if (deviceInfo.isSmartTV()) {
                 score -= 5; // Less score reduction for Smart TVs
             } else {
                 score -= 15;
@@ -167,8 +167,15 @@ export class FingerprintValidator {
         return finalScore;
 
     }
-    private checkInconsistencies(fingerprint: IBrowserFingerprint): boolean {
-        // Check for inconsistencies between User-Agent and other fingerprint
+
+    /**
+     * Checks for inconsistencies between fingerprint properties
+     * @param fingerprint The complete fingerprint data
+     * @param deviceInfo Optional pre-analyzed device information
+     * @returns True if inconsistencies detected, false otherwise
+     */
+    private checkInconsistencies(fingerprint: IBrowserFingerprint, deviceInfo: DeviceInfo): boolean {
+        // Check for inconsistencies between User-Agent and another fingerprint
         const ua = fingerprint.userAgent?.toLowerCase() || '';
 
         // Check for platform inconsistency
@@ -176,22 +183,19 @@ export class FingerprintValidator {
             (ua.includes('windows') && fingerprint.platform !== 'Win32') ||
             (ua.includes('macintosh') && !fingerprint.platform?.includes('Mac')) ||
             (ua.includes('linux') && !fingerprint.platform?.includes('Linux')) ||
-            (ua.includes('tizen') && !fingerprint.platform?.includes('Linux')) ||
-            (ua.includes('smart-tv') && !fingerprint.platform?.includes('Linux')) ||
-            (ua.includes('androd') && !fingerprint.platform?.includes('Linux')) // Typo in Android device UAs
+            (deviceInfo.isSmartTV() && !fingerprint.platform?.includes('Linux')) ||
+            (deviceInfo.isAndroid() && !fingerprint.platform?.includes('Linux')) // Including typo in Android device UAs
         ) {
             return true;
         }
 
         // Check for mobile/desktop inconsistency
-        const isMobileUA = ua.includes('mobile') || ua.includes('android');
+        const isMobileUA = deviceInfo.isMobile();
         const isMobileScreen = fingerprint.screenResolution?.width < 768;
 
 
         // Check for tablet inconsistency
-        const isTabletUA = ua.includes('ipad') ||
-            (ua.includes('android') && !ua.includes('mobile')) ||
-            ua.includes('tablet');
+        const isTabletUA = deviceInfo.isTablet();
         const isTabletScreen = fingerprint.screenResolution &&
             fingerprint.screenResolution.width >= 768 &&
             fingerprint.screenResolution.width <= 1366;
@@ -204,42 +208,29 @@ export class FingerprintValidator {
         return false;
     }
 
-    private checkScreenAnomalies(data: IBrowserFingerprint): boolean {
+    /**
+     * Checks for anomalies in screen resolution and related properties
+     * @param data The complete fingerprint data
+     * @param deviceInfo Optional pre-analyzed device information
+     * @returns True if anomalies detected, false otherwise
+     */
+    private checkScreenAnomalies(data: IBrowserFingerprint, deviceInfo: DeviceInfo): boolean {
         if (!data.screenResolution) return false;
 
         const {width, height, colorDepth, pixelDepth} = data.screenResolution;
         const ua = data.userAgent?.toLowerCase() || '';
 
+        // Используем isSmartTV из параметра deviceInfo
+        if (deviceInfo.isSmartTV()) {
+            return !ValidateDisplay.validateSmartTVDisplay(data.screenResolution);
+        }
 
-        // Checking Smart TV devices which have specific screen parameters
-        const isSmartTV = ua.includes('smart-tv') ||
-            ua.includes('tizen') ||
-            ua.includes('tv safari') ||
-            (ua.includes('tv') && ua.includes('samsung')) ||
-            (ua.includes('tv') && ua.includes('lg')) ||
-            (ua.includes('android') && ua.includes('tv'));
-
-        if (isSmartTV) {
-            // For Smart TVs we apply special checking rules
-            // Typical resolutions for Smart TVs: 1920x1080, 3840x2160, etc.
-            if (width === 1920 && height === 1080 && colorDepth >= 24) {
-                return false; // Standard Full HD resolution for TV
-            }
-            if (width === 3840 && height === 2160 && colorDepth >= 24) {
-                return false; // Standard 4K resolution for TV
-            }
-            if (width === 1280 && height === 720 && colorDepth >= 24) {
-                return false; // Standard HD resolution for TV
-            }
-
-            // For other TV resolutions we do more lenient checking
-            if (width >= 1280 && height >= 720 && colorDepth >= 24) {
-                return false;
-            }
+        if (deviceInfo.isIPhone()) {
+            return !ValidateDisplay.validateIphoneDisplay(data.screenResolution)
         }
 
         // Checking Android devices that may have non-standard resolutions
-        const isAndroid = ua.includes('android') || ua.includes('androd');
+        const isAndroid = deviceInfo.isAndroid();
         if (isAndroid) {
             // Typical resolutions for Android tablets
             if ((width === 1280 && height === 800) || // Common tablet resolution
@@ -262,7 +253,7 @@ export class FingerprintValidator {
         }
 
         // Determine if it's a mobile device
-        const isMobile = ua.includes('mobile') || ua.includes('android') || ua.includes('iphone');
+        const isMobile = deviceInfo.isMobile();
 
         // Basic validation - invalid dimensions (making checks more flexible for mobile devices)
         if (width <= 0 || height <= 0 ||
@@ -276,13 +267,10 @@ export class FingerprintValidator {
             return true;
         }
 
-        // Determine device type and characteristics
-        const deviceInfo = this.analyzeDeviceType(ua, width, height);
-
         // For mobile devices we skip some checks that often produce false positives
-        if (!isMobile) {
+        if (isMobile) {
             // Check against known device patterns - only for non-mobile devices
-            if (this.checkAgainstKnownDevices(deviceInfo, width, height)) {
+            if (this.checkAgainstKnownDevices(deviceInfo, data.screenResolution)) {
                 return true;
             }
 
@@ -292,7 +280,7 @@ export class FingerprintValidator {
             }
         }
 
-        // Check aspect ratio based on device type
+        // Check an aspect ratio based on a device type
         if (this.checkAspectRatioAnomalies(deviceInfo, width, height)) {
             return true;
         }
@@ -305,6 +293,12 @@ export class FingerprintValidator {
         return false;
     }
 
+    /**
+     * Checks if color depth and pixel depth values are valid and consistent
+     * @param colorDepth The reported color depth
+     * @param pixelDepth The reported pixel depth
+     * @returns True if anomalies detected, false otherwise
+     */
     private checkColorDepthAnomalies(colorDepth?: number, pixelDepth?: number): boolean {
         // Color depth should be realistic for modern devices
         if (colorDepth !== undefined) {
@@ -333,188 +327,39 @@ export class FingerprintValidator {
         return false;
     }
 
-    private analyzeDeviceType(ua: string, width: number, height: number): IDeviceInfo {
-        const minDimension = Math.min(width, height);
-        const maxDimension = Math.max(width, height);
-        const aspectRatio = maxDimension / minDimension;
+    /**
+     * Validates screen dimensions against known device specifications
+     * @param deviceInfo The analyzed device information
+     * @param width Screen width
+     * @param height Screen height
+     * @returns True if device dimensions are suspicious, false otherwise
+     */
+    private checkAgainstKnownDevices(deviceInfo: DeviceInfo, screenResolution: IScreenResolution,): boolean {
+        // const {type, brand, isIPhone, isAndroid, isSmartTV, minDimension, maxDimension} = screenResolution;
 
-        // Determine a device type with more precision
-        let deviceType: 'mobile' | 'tablet' | 'desktop' | 'smarttv' = 'desktop';
-        let brand: string | null = null;
-        let isIPhone = false;
-        let isAndroid = false;
-        let isIPad = false;
-        let isSmartTV = false;
 
-        if (ua.includes('iphone')) {
-            deviceType = 'mobile';
-            brand = 'Apple';
-            isIPhone = true;
-        } else if (ua.includes('ipad')) {
-            deviceType = 'tablet';
-            brand = 'Apple';
-            isIPad = true;
-        } else if (ua.includes('android')) {
-            isAndroid = true;
-            // Distinguish between Android phone and tablet by screen size
-            if (minDimension >= 600 && aspectRatio < 2.0) {
-                deviceType = 'tablet';
-            } else {
-                deviceType = 'mobile';
-            }
-            brand = 'Android';
-        } else if (ua.includes('mobile')) {
-            deviceType = 'mobile';
-        } else if (ua.includes('tablet')) {
-            deviceType = 'tablet';
-        } else if (ua.includes('smart-tv') || ua.includes('tizen') || ua.includes('tv safari')) {
-            deviceType = 'smarttv';
-            isSmartTV = true;
-
-            // Detecting TV brand
-            if (ua.includes('samsung')) {
-                brand = 'Samsung';
-            } else if (ua.includes('lg')) {
-                brand = 'LG';
-            } else if (ua.includes('android')) {
-                brand = 'Android TV';
-            } else {
-                brand = 'Smart TV';
-            }
-        }
-
-        return {
-            type: deviceType,
-            brand,
-            isIPhone,
-            isAndroid,
-            isIPad,
-            isSmartTV,
-            minDimension,
-            maxDimension,
-            aspectRatio
-        };
-    }
-
-    private checkAgainstKnownDevices(deviceInfo: IDeviceInfo, width: number, height: number): boolean {
-        const {type, brand, isIPhone, isAndroid, isSmartTV, minDimension, maxDimension} = deviceInfo;
-
-        if (isIPhone) {
-            // Known iPhone resolutions (including different pixel densities)
-            const iPhoneResolutions = [
-                // iPhone SE, 5, 5s, 5c
-                [320, 568], [640, 1136],
-                // iPhone 6, 6s, 7, 8, SE 2nd/3rd gen
-                [375, 667], [750, 1334],
-                // iPhone 6+, 6s+, 7+, 8+
-                [414, 736], [1242, 2208], [1080, 1920],
-                // iPhone X, XS, 11 Pro
-                [375, 812], [1125, 2436],
-                // iPhone XR, 11
-                [414, 896], [828, 1792],
-                // iPhone XS Max, 11 Pro Max
-                [414, 896], [1242, 2688],
-                // iPhone 12 mini
-                [375, 812], [1080, 2340],
-                // iPhone 12, 12 Pro
-                [390, 844], [1170, 2532],
-                // iPhone 12 Pro Max
-                [428, 926], [1284, 2778],
-                // iPhone 13 mini
-                [375, 812], [1080, 2340],
-                // iPhone 13, 13 Pro
-                [390, 844], [1170, 2532],
-                // iPhone 13 Pro Max
-                [428, 926], [1284, 2778],
-                // iPhone 14, 14 Plus, 14 Pro, 14 Pro Max
-                [393, 852], [430, 932], [1179, 2556], [1290, 2796]
-            ];
-
-            const currentRes = [Math.min(width, height), Math.max(width, height)];
-            const isKnownRes = iPhoneResolutions.some(([w, h]) =>
-                (currentRes[0] === w && currentRes[1] === h)
-            );
-
-            // If it's not a known iPhone resolution, it's suspicious
-            if (!isKnownRes) {
-                // Allow some tolerance for zoom or custom resolutions
-                const hasCloseMatch = iPhoneResolutions.some(([w, h]) => {
-                    const diffW = Math.abs(currentRes[0] - w);
-                    const diffH = Math.abs(currentRes[1] - h);
-                    return diffW <= 10 && diffH <= 20; // Small tolerance
-                });
-
-                if (!hasCloseMatch) {
-                    return true;
-                }
-            }
-        }
-
-        if (isAndroid) {
+        if (deviceInfo.isAndroid()) {
             // Android devices have more variety, but check for reasonable ranges
-            if (type === 'mobile') {
+            if (deviceInfo.isMobile()) {
                 // Android phone reasonable ranges
-                if (minDimension < 240 || minDimension > 500 ||
-                    maxDimension < 400 || maxDimension > 1000) {
+                if (deviceInfo.minDimension < 240 || deviceInfo.minDimension > 500 ||
+                    deviceInfo.maxDimension < 400 || deviceInfo.maxDimension > 1000) {
                     return true;
                 }
-            } else if (type === 'tablet') {
+            } else if (deviceInfo.isTouchDevice()) {
                 // Android tablet reasonable ranges
-                if (minDimension < 600 || minDimension > 1200 ||
-                    maxDimension < 800 || maxDimension > 2000) {
+                if (deviceInfo.minDimension < 600 || deviceInfo.minDimension > 1200 ||
+                    deviceInfo.maxDimension < 800 || deviceInfo.maxDimension > 2000) {
                     return true;
                 }
             }
         }
 
-        if (isSmartTV) {
-            // Typical Smart TV resolutions
-            const smartTVResolutions = [
-                [1280, 720],  // HD
-                [1920, 1080], // Full HD
-                [3840, 2160], // 4K UHD
-                [7680, 4320], // 8K UHD
-                [2560, 1440], // QHD
-                [3440, 1440]  // Ultrawide QHD
-            ];
-
-            const currentRes = [Math.min(width, height), Math.max(width, height)];
-            const isKnownRes = smartTVResolutions.some(([w, h]) =>
-                (currentRes[0] === Math.min(w, h) && currentRes[1] === Math.max(w, h))
-            );
-
-            // If this is not a known Smart TV resolution, check if it's close to known resolutions
-            if (!isKnownRes) {
-                const hasCloseMatch = smartTVResolutions.some(([w, h]) => {
-                    const diffW = Math.abs(currentRes[0] - Math.min(w, h));
-                    const diffH = Math.abs(currentRes[1] - Math.max(w, h));
-                    return (diffW / Math.min(w, h)) < 0.1 && (diffH / Math.max(w, h)) < 0.1; // 10% tolerance
-                });
-
-                if (!hasCloseMatch) {
-                    this.log.debug('Unusual resolution for Smart TV', {width, height});
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        if (type === 'desktop') {
+        if (deviceInfo.isDesktop()) {
             // Desktop minimum reasonable sizes
-            if (minDimension < 640 || maxDimension < 800) {
+            if (deviceInfo.minDimension < 640 || deviceInfo.maxDimension < 800) {
                 return true;
             }
-
-            // Check for common automation resolutions that are suspicious
-            const suspiciousDesktopRes = [
-                [800, 600], [1024, 768], [1280, 720], [1920, 1080]
-            ];
-
-            const currentRes = [width, height].sort((a, b) => a - b);
-            const isSuspiciousRes = suspiciousDesktopRes.some(([w, h]) =>
-                currentRes[0] === Math.min(w, h) && currentRes[1] === Math.max(w, h)
-            );
 
             // These are common but when combined with other factors can be suspicious
             return false; // Don't flag these alone, let other checks handle it
@@ -523,34 +368,40 @@ export class FingerprintValidator {
         return false;
     }
 
-    private checkAspectRatioAnomalies(deviceInfo: IDeviceInfo, width: number, height: number): boolean {
-        const {type, aspectRatio} = deviceInfo;
+    /**
+     * Checks if the aspect ratio is anomalous for the given device type
+     * @param deviceInfo The analyzed device information
+     * @param width Screen width
+     * @param height Screen height
+     * @returns True if aspect ratio is anomalous, false otherwise
+     */
+    private checkAspectRatioAnomalies(deviceInfo: DeviceInfo, width: number, height: number): boolean {
 
-        switch (type) {
-            case 'mobile':
+        switch (true) {
+            case deviceInfo.isMobile():
                 // Mobile devices: from square-ish (old phones) to very tall (modern phones)
-                if (aspectRatio < 1.2 || aspectRatio > 2.5) {
+                if (deviceInfo.aspectRatio < 1.2 || deviceInfo.aspectRatio > 2.5) {
                     return true;
                 }
                 break;
 
-            case 'tablet':
+            case deviceInfo.isTablet():
                 // Tablets: typically between 4:3 and 16:10
-                if (aspectRatio < 1.25 || aspectRatio > 1.8) {
+                if (deviceInfo.aspectRatio < 1.25 || deviceInfo.aspectRatio > 1.8) {
                     return true;
                 }
                 break;
 
-            case 'smarttv':
+            case deviceInfo.isSmartTV():
                 // Smart TVs: typical aspect ratios are 16:9, 21:9 or 4:3
-                if (aspectRatio < 1.3 || aspectRatio > 2.4) {
+                if (deviceInfo.aspectRatio < 1.3 || deviceInfo.aspectRatio > 2.4) {
                     return true;
                 }
                 break;
 
-            case 'desktop':
+            case deviceInfo.isDesktop():
                 // Desktop: from 4:3 to ultra-wide monitors
-                if (aspectRatio < 0.75 || aspectRatio > 4.0) {
+                if (deviceInfo.aspectRatio < 0.75 || deviceInfo.aspectRatio > 4.0) {
                     return true;
                 }
                 break;
@@ -559,7 +410,15 @@ export class FingerprintValidator {
         return false;
     }
 
-    private checkAutomationPatterns(deviceInfo: IDeviceInfo, width: number, height: number, ua: string): boolean {
+    /**
+     * Checks for patterns typical of automated browsers or emulated environments
+     * @param deviceInfo The analyzed device information
+     * @param width Screen width
+     * @param height Screen height
+     * @param ua User agent string
+     * @returns True if automation patterns detected, false otherwise
+     */
+    private checkAutomationPatterns(deviceInfo: DeviceInfo, width: number, height: number, ua: string): boolean {
         // Common headless/automation browser resolutions
         const automationResolutions = [
             [400, 400], [800, 600], [1024, 768], [1280, 1024],
@@ -584,9 +443,9 @@ export class FingerprintValidator {
 
             // Perfect common resolutions can be suspicious for certain device types
             // For Smart TVs these resolutions are quite normal
-            if (deviceInfo.type === 'mobile' && isAutomationRes) {
+            if (deviceInfo.isMobile()) {
                 return true; // Mobile shouldn't have these exact resolutions
-            } else if (deviceInfo.isSmartTV && isAutomationRes) {
+            } else if (deviceInfo.isSmartTV() && isAutomationRes) {
                 // Smart TVs often have standard resolutions, this is not suspicious
                 return false;
             }
@@ -596,7 +455,7 @@ export class FingerprintValidator {
         const perfectRatios = [1.0, 1.25, 1.33, 1.5, 1.6, 1.77, 2.0];
         const currentRatio = Math.round(deviceInfo.aspectRatio * 100) / 100;
 
-        if (perfectRatios.includes(currentRatio) && deviceInfo.type === 'mobile') {
+        if (perfectRatios.includes(currentRatio) && deviceInfo.isMobile()) {
             // Real mobile devices rarely have perfect mathematical ratios
             return true;
         }
@@ -604,7 +463,13 @@ export class FingerprintValidator {
         return false;
     }
 
-    private crossValidateScreenData(data: IBrowserFingerprint, deviceInfo: IDeviceInfo): boolean {
+    /**
+     * Cross-validates screen data with other fingerprint properties
+     * @param data The complete fingerprint data
+     * @param deviceInfo The analyzed device information
+     * @returns True if inconsistencies detected, false otherwise
+     */
+    private crossValidateScreenData(data: IBrowserFingerprint, deviceInfo: DeviceInfo): boolean {
         const ua = data.userAgent?.toLowerCase() || '';
 
         // Check consistency between screen size and platform
@@ -612,7 +477,7 @@ export class FingerprintValidator {
             const platform = data.platform.toLowerCase();
 
             // iOS devices should have specific screen characteristics
-            if (platform.includes('iphone') && !deviceInfo.isIPhone) {
+            if (platform.includes('iphone') && !deviceInfo.isIPhone()) {
                 return true;
             }
 
@@ -622,7 +487,7 @@ export class FingerprintValidator {
             }
 
             // Desktop platforms with mobile device screen sizes
-            if ((platform.includes('win') || platform.includes('mac')) && deviceInfo.type === 'mobile') {
+            if ((platform.includes('win') || platform.includes('mac')) && deviceInfo.isMobile()) {
                 return true;
             }
 
@@ -653,6 +518,13 @@ export class FingerprintValidator {
         return false;
     }
 
+    /**
+     * Stores fingerprint data on external storage for analysis
+     * @param fingerprint The complete fingerprint data
+     * @param finalScore The calculated authenticity score
+     * @param requestId Request identifier
+     * @param challengeId Challenge identifier
+     */
     private storeFingerprintData(fingerprint: IBrowserFingerprint, finalScore: number, requestId: string, challengeId: string) {
         const credentials = Buffer.from(`${this.config.storeData.user}:${this.config.storeData.pass}`).toString('base64');
 
@@ -664,15 +536,17 @@ export class FingerprintValidator {
                 'Authorization': `Basic ${credentials}`
 
             },
-            body: JSON.stringify({data: {
-                _finalScore: finalScore,
-                _requestId: requestId,
-                _challengeId: challengeId,
-                fingerprint
-            }}, null, 2)
+            body: JSON.stringify({
+                data: {
+                    _finalScore: finalScore,
+                    _requestId: requestId,
+                    _challengeId: challengeId,
+                    fingerprint
+                }
+            }, null, 2)
         })
             .then(res => res.json()).then(data => {
-                delete data.data;
+            delete data.data;
             this.log.debug('Fingerprint data sent successfully', data);
         })
             .catch(error => {
@@ -720,17 +594,4 @@ export interface IBrowserFingerprint {
     webdriver: boolean;
     extensions: any[];
     browserProofs: IBrowserProofs;
-}
-
-
-interface IDeviceInfo {
-    type: 'mobile' | 'tablet' | 'desktop' | 'smarttv';
-    brand: string | null;
-    isIPhone: boolean;
-    isAndroid: boolean;
-    isIPad: boolean;
-    isSmartTV: boolean;
-    minDimension: number;
-    maxDimension: number;
-    aspectRatio: number;
 }
