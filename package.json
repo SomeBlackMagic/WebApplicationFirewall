@@ -24,7 +24,7 @@
     "@elementary-lab/logger": "^2.5.3",
     "@elementary-lab/standards": "^3.0.0",
     "@maxmind/geoip2-node": "^6.0.0",
-    "@sentry/node": "^9.11.0",
+    "@sentry/node": "^10.10.0",
     "body-parser": "^2.2.0",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
