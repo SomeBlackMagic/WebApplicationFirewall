@@ -200,7 +200,9 @@ export class JailManager extends Singleton<JailManager, []>{
         if (bannedUser === false) {
             return false;
         }
+
         this.blockedIPsLoaded[ip].unbanTime = Date.now() - 1;
+        this.blockedIPsAdded[ip] = this.blockedIPsLoaded[ip];
 
         return true
     }

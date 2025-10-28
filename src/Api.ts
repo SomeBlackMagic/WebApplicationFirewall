@@ -41,11 +41,11 @@ export class Api {
     }
 
     public deleteBannedUsers(req: Request, res: Response) {
-        if(!req.body.ip) {
-            res.sendStatus(500);
+        if(!req.body?.ip) {
+            res.type('json').status(500).send(JSON.stringify({msg: 'ip is required'}));
         }
         const result = this.jailManager.deleteBlockedIp(req.body.ip);
-        res.type('json').send(JSON.stringify(result));
+        res.type('json').send(JSON.stringify({status: result}));
     }
 
     /**

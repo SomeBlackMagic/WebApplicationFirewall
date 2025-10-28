@@ -16,6 +16,7 @@ import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
 import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
 import {ISentryConfig, Sentry} from "@waf/Sentry";
 import {UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
+import bodyParser from 'body-parser';
 sourceMapSupport.install()
 
 
@@ -56,6 +57,7 @@ interface AppConfig {
 
     const app = express();
     app.use(cookieParser())
+    app.use(bodyParser.json())
     app.disable('x-powered-by');
 
     const api = new Api(appConfig.api, app);

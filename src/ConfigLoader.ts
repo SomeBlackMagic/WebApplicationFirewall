@@ -25,7 +25,10 @@ export class ConfigLoader {
 
 
     private async loadFromLink<T>(): Promise<T> {
-        const link = env('WAF_CONFIG_SOURCE');
+        const link = env('WAF_CONFIG_SOURCE', false) as string | false;
+        if (link == false) {
+            throw new Error('Env variable WAF_CONFIG_SOURCE is not define');
+        }
         Log.instance.info('Load configuration from link: ' + link);
         const response = await fetch(link)
             .then((result) => {
