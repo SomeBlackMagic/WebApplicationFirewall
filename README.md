@@ -23,67 +23,91 @@ Modular and configurable Web Application Firewall (WAF) server written in TypeSc
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- **Node.js** 22+
-- **GeoIP Databases** ([Download here](https://github.com/P3TERX/GeoLite.mmdb))
-
-### Installation
+### Using Docker (Recommended)
 
 ```bash
-# Clone repository
-git clone https://github.com/SomeBlackMagic/WebApplicationFirewall.git
-cd WebApplicationFirewall
-
-# Install dependencies
-npm install
-
-# Create configuration
-cp config.example.yaml config.yaml
-
 # Download GeoIP databases
+mkdir -p geoip_data && cd geoip_data
 wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
 wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
-```
+cd ..
 
-### Configure
-
-Edit `config.yaml`:
-
-```yaml
-mode: audit          # Use 'audit' for testing, 'normal' for production
-port: 3000
-
+# Create minimal config.yaml (see docs for full examples)
+cat > config.yaml <<'EOF'
 proxy:
-  enabled: true
-  host: "http://localhost:8080"  # Your backend URL
+  host: "http://host.docker.internal:8080"  # Your backend URL
 
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
+api:
+  auth:
+    enabled: false
+    username: 'admin'
+    password: 'admin'
+
+metrics:
+  enabled: true
+  auth:
+    enabled: false
+    username: 'admin'
+    password: 'admin'
+
+wafMiddleware:
+  mode: audit  # Use 'normal' for production
+
+  detectClientIp:
+    headers: ["x-forwarded-for"]
+
+  detectClientCountry:
+    method: geoip
+
+  detectClientCity:
+    method: geoip
 
 jailManager:
   enabled: true
   storage:
-    driver: memory    # Use 'file' for production
+    driver: memory
   filterRules:
-    - id: rate-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
-      limit: 1000
+    - name: "rate-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
+      conditions: []
       period: 60
+      limit: 1000
       duration: 300
       escalationRate: 1.5
-```
 
-### Run
+sentry:
+  enabled: false
+  dsn: ''
+  debug: false
+EOF
 
-```bash
-npm start
+# Run WAF
+docker run -d \
+  --name waf \
+  -p 3000:3000 \
+  -v $(pwd)/config.yaml:/app/config.yaml:ro \
+  -v $(pwd)/geoip_data:/app/geoip_data:ro \
+  ghcr.io/someblackmagic/web-application-firewall:latest
+
+# Check logs
+docker logs -f waf
 ```
 
 Access at: `http://localhost:3000`
+
+### Alternative: Binary from Releases
+
+```bash
+# Download latest binary
+wget https://github.com/SomeBlackMagic/WebApplicationFirewall/releases/latest/download/waf-linux-x64
+chmod +x waf-linux-x64
+
+# Run
+./waf-linux-x64
+```
+
+See [Quick Start Guide](docs/getting-started/quick-start.md) for detailed instructions.
 
 ## 📚 Documentation
 

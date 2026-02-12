@@ -1,134 +1,124 @@
 # Production WAF Configuration
 # Recommended configuration for production deployments
 
-# Operating mode
-mode: normal  # Actively blocks requests
-
-# Server port
-port: 3000
-
-# Client IP detection
-detectClientIp:
-  headers:
-    - "x-forwarded-for"
-    - "x-real-ip"
-
-# Geolocation detection
-detectClientCountry:
-  method: geoip
-
-detectClientCity:
-  method: geoip
-
-# GeoIP databases
-geoip:
-  countryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
-  cityPath: '/app/geoip_data/GeoLite2-City.mmdb'
-
-# Proxy configuration
 proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    changeOrigin: true
-    proxyTimeout: 30000
+  host: "http://backend:8080"  # Update with your backend service
 
-# Logging
-log:
-  level: 'info'
-  transport: 'console'
+api:
+  auth:
+    enabled: true
+    username: 'admin'
+    password: 'CHANGE-THIS-PASSWORD'  # Use strong password!
 
-# Metrics
 metrics:
   enabled: true
-  path: '/metrics'
+  auth:
+    enabled: true  # Protect metrics endpoint in production
+    username: 'prometheus'
+    password: 'CHANGE-THIS-PASSWORD'
 
-# Sentry error tracking (optional)
-sentry:
-  dsn: ""  # Set via SENTRY_DSN environment variable
+wafMiddleware:
+  mode: normal  # Actively blocks malicious requests
 
-# Whitelist trusted sources
-whitelist:
-  enabled: true
-  ips:
-    - "10.0.0.0/8"        # Internal network
-    - "192.168.0.0/16"    # Internal network
-  countries: []
-  cities: []
+  bannedResponse:
+    httpCode: 429
+    json: ''
+    html: ''
+    htmlLink: ''
 
-# Blacklist (optional)
-blacklist:
-  enabled: false
+  # Client IP detection - adjust headers based on your proxy/CDN
+  detectClientIp:
+    headers:
+      - "x-forwarded-for"
+      - "x-real-ip"
 
-# Jail system with file storage
+  # Geolocation using local GeoIP databases
+  detectClientCountry:
+    method: geoip
+
+  detectClientCity:
+    method: geoip
+
+  # Whitelist trusted sources
+  whitelist:
+    ips: []
+    ipSubnet:
+      - "10.0.0.0/8"        # Internal network
+      - "192.168.0.0/16"    # Internal network
+    geoCountry: []  # e.g., ["US", "GB"] to allow only specific countries
+    geoCity: []
+
+  # Blacklist (optional)
+  blacklist:
+    ips: []
+    ipSubnet: []
+    geoCountry: []  # e.g., ["KP"] to block specific countries
+    geoCity: []
+
 jailManager:
   enabled: true
   storage:
-    driver: file
+    driver: file  # Persist bans across restarts
     driverConfig:
-      filePath: '/app/data/blocked_ips.json'
+      filePath: data/blocked_ips.json
       locker:
         enabled: true
         config:
           retries: 5
-  syncInterval: 10000
-  syncAlways: false
+
   filterRules:
     # Login brute force protection
-    - id: login-bruteforce
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "login-bruteforce"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions:
-        - field: url
-          method: contains
-          values: ["/login", "/auth", "/signin"]
-        - field: method
-          method: equals
-          values: ["POST"]
-      limit: 5
-      period: 300
-      duration: 900
+        - field: 'url'
+          check:
+            - method: 'equals'
+              values: ["/login", "/auth", "/signin", "/api/auth/login"]
+      period: 300     # 5 minutes
+      limit: 5        # Only 5 login attempts
+      duration: 900   # Ban for 15 minutes
       escalationRate: 2.0
 
     # API rate limiting per IP + endpoint
-    - id: api-rate-limit
-      type: composite
-      enabled: true
-      keys: ["ip", "url"]
+    - name: "api-rate-limit"
+      type: "composite"
+      uniqueClientKey: ["ip", "url"]  # Separate limits per endpoint
       conditions:
-        - field: url
-          method: contains
-          values: ["/api/"]
-      limit: 100
-      period: 60
-      duration: 300
+        - field: 'url'
+          check:
+            - method: 'regexp'
+              values: ["/^\/api\//"]
+      period: 60      # 1 minute
+      limit: 100      # 100 requests per endpoint per minute
+      duration: 300   # Ban for 5 minutes
       escalationRate: 1.5
 
-    # Global rate limit
-    - id: global-rate-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
-      conditions: []
-      limit: 5000
-      period: 3600
-      duration: 600
+    # Global rate limit per IP
+    - name: "global-rate-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
+      conditions: []  # Applies to all requests
+      period: 3600    # 1 hour
+      limit: 5000     # 5000 requests per hour
+      duration: 600   # Ban for 10 minutes
       escalationRate: 1.3
 
     # Block known bad bots
-    - id: block-bad-bots
-      type: flexible
-      enabled: true
+    - name: "block-bad-bots"
+      type: "flexible"
       conditions:
-        - field: user-agent
-          method: regex
-          values: ["(sqlmap|nikto|nmap|masscan|nessus)"]
+        - field: 'user-agent'
+          check:
+            - method: 'regexp'
+              values: ["/(sqlmap|nikto|nmap|masscan|nessus)/i"]
+      period: 60
+      limit: 1        # Block immediately
+      duration: 86400 # Ban for 24 hours
+      escalationRate: 2.0
 
-# API configuration
-api:
-  enabled: true
-  auth:
-    enabled: true
-    username: "admin"
-    password: "CHANGE-THIS-PASSWORD"  # Use strong password!
+sentry:
+  enabled: false
+  dsn: ''  # Set via SENTRY_DSN environment variable
+  debug: false

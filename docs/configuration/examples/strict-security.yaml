@@ -1,229 +1,221 @@
 # Strict Security WAF Configuration
-# Maximum protection with aggressive rules
+# Maximum protection with aggressive rules and multiple security layers
 
-# Operating mode
-mode: normal
-
-# Server port
-port: 3000
-
-# Client IP detection
-detectClientIp:
-  headers:
-    - "x-forwarded-for"
-    - "cf-connecting-ip"
-    - "x-real-ip"
-
-# Geolocation detection
-detectClientCountry:
-  method: geoip
-
-detectClientCity:
-  method: geoip
-
-# GeoIP databases
-geoip:
-  countryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
-  cityPath: '/app/geoip_data/GeoLite2-City.mmdb'
-
-# Proxy configuration
 proxy:
-  enabled: true
   host: "http://backend:8080"
-  config:
-    changeOrigin: true
-    proxyTimeout: 30000
 
-# Logging (verbose for security auditing)
-log:
-  level: 'info'
-  transport: 'console'
+api:
+  auth:
+    enabled: true
+    username: 'admin'
+    password: 'CHANGE-TO-VERY-STRONG-PASSWORD'  # Minimum 20 characters, random
 
-# Metrics
 metrics:
   enabled: true
-  path: '/metrics'
+  auth:
+    enabled: true
+    username: 'prometheus'
+    password: 'CHANGE-THIS-PASSWORD'
 
-# Sentry for error tracking
-sentry:
-  dsn: ""  # Set via SENTRY_DSN environment variable
+wafMiddleware:
+  mode: normal
 
-# Whitelist only known good sources
-whitelist:
-  enabled: true
-  ips:
-    - "192.168.1.0/24"  # Office network only
-  countries: []  # Consider limiting to specific countries
-  cities: []
+  bannedResponse:
+    httpCode: 429
+    json: '{"error":"Too many requests","retryAfter":300}'
+    html: ''
+    htmlLink: ''
 
-# Blacklist high-risk countries and known threats
-blacklist:
-  enabled: true
-  countries:
-    - "CN"  # Adjust based on your legitimate traffic
-    - "RU"
-    - "KP"
-  linkUrl: "https://feeds.example.com/malicious-ips.json"
-  updateInterval: 1800000  # Update every 30 minutes
+  detectClientIp:
+    headers:
+      - "x-forwarded-for"
+      - "cf-connecting-ip"
+      - "x-real-ip"
 
-# Jail system with aggressive rules
+  detectClientCountry:
+    method: geoip
+
+  detectClientCity:
+    method: geoip
+
+  # Strict whitelist - only known good sources
+  whitelist:
+    ips: []
+    ipSubnet:
+      - "192.168.1.0/24"  # Office network only
+    geoCountry: []  # Consider limiting to ["US", "GB"] if applicable
+    geoCity: []
+
+  # Block high-risk countries and known threats
+  blacklist:
+    ips: []
+    ipSubnet: []
+    geoCountry: ["CN", "RU", "KP"]  # Adjust based on your legitimate traffic
+    geoCity: []
+
 jailManager:
   enabled: true
   storage:
     driver: file
     driverConfig:
-      filePath: '/app/data/blocked_ips.json'
+      filePath: data/blocked_ips.json
       locker:
         enabled: true
         config:
           retries: 5
-  syncInterval: 5000
-  syncAlways: true  # Immediate persistence
+
   filterRules:
-    # External threat intelligence
-    - id: threat-feed
-      type: static
-      enabled: true
-      linkUrl: "https://reputation.example.com/blocklist.json"
-      updateInterval: 3600000
+    # External threat intelligence feed
+    - name: "threat-feed"
+      type: "static"
+      linkUrl: "https://feeds.example.com/malicious-ips.json"  # Update with real feed
+      updateInterval: 3600000  # Update hourly
 
     # Extremely strict login protection
-    - id: login-bruteforce
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "login-bruteforce"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions:
-        - field: url
-          method: contains
-          values: ["/login", "/auth", "/signin", "/oauth"]
-        - field: method
-          method: equals
-          values: ["POST"]
-      limit: 3
-      period: 600  # Only 3 attempts per 10 minutes
-      duration: 3600  # 1 hour ban
+        - field: 'url'
+          check:
+            - method: 'equals'
+              values: ["/login", "/auth", "/signin", "/api/auth"]
+      period: 600     # 10 minutes
+      limit: 3        # Only 3 attempts
+      duration: 3600  # Ban for 1 hour
       escalationRate: 3.0
 
-    # Admin area - geo-restricted
-    - id: admin-geo-block
-      type: flexible
-      enabled: true
+    # Admin area - geo-restricted (flexible rule)
+    - name: "admin-geo-block"
+      type: "flexible"
       conditions:
-        - field: url
-          method: contains
-          values: ["/admin", "/wp-admin", "/phpmyadmin"]
-        - field: country
-          method: notEquals
-          values: ["US"]  # Only allow from US (adjust as needed)
+        - field: 'url'
+          check:
+            - method: 'regexp'
+              values: ["/^\/(admin|wp-admin|phpmyadmin)/"]
+        - field: 'geo-country'
+          check:
+            - method: 'equals'
+              values: ["RU", "CN"]  # Block these countries from admin
+      period: 60
+      limit: 1
+      duration: 86400
+      escalationRate: 1.0
 
     # Admin area - rate limited
-    - id: admin-rate-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "admin-rate-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions:
-        - field: url
-          method: contains
-          values: ["/admin"]
-      limit: 20
+        - field: 'url'
+          check:
+            - method: 'regexp'
+              values: ["/^\/(admin|wp-admin)/"]
       period: 60
+      limit: 20
       duration: 1800
       escalationRate: 2.5
 
     # API - strict per-endpoint limits
-    - id: api-per-endpoint
-      type: composite
-      enabled: true
-      keys: ["ip", "url"]
+    - name: "api-per-endpoint"
+      type: "composite"
+      uniqueClientKey: ["ip", "url"]
       conditions:
-        - field: url
-          method: contains
-          values: ["/api/"]
-      limit: 30
+        - field: 'url'
+          check:
+            - method: 'regexp'
+              values: ["/^\/api\//"]
       period: 60
+      limit: 30       # Strict limit
       duration: 600
       escalationRate: 2.0
 
     # API - global limit per IP
-    - id: api-global-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "api-global-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions:
-        - field: url
-          method: contains
-          values: ["/api/"]
-      limit: 300
+        - field: 'url'
+          check:
+            - method: 'regexp'
+              values: ["/^\/api\//"]
       period: 60
+      limit: 300
       duration: 1200
       escalationRate: 2.0
 
     # Block suspicious user agents
-    - id: block-bad-bots
-      type: flexible
-      enabled: true
+    - name: "block-bad-bots"
+      type: "flexible"
       conditions:
-        - field: user-agent
-          method: regex
-          values: ["(bot|crawler|scraper|scanner|sqlmap|nikto|nmap|masscan|nessus|acunetix|metasploit)"]
+        - field: 'user-agent'
+          check:
+            - method: 'regexp'
+              values: ["/(bot|crawler|scraper|scanner|sqlmap|nikto|nmap|masscan|nessus|acunetix|metasploit)/i"]
+      period: 60
+      limit: 1
+      duration: 86400
+      escalationRate: 2.0
 
     # Block missing or suspicious user agents
-    - id: block-no-user-agent
-      type: flexible
-      enabled: true
+    - name: "block-no-user-agent"
+      type: "flexible"
       conditions:
-        - field: user-agent
-          method: equals
-          values: ["", "-", "Mozilla"]  # Common for bots
+        - field: 'user-agent'
+          check:
+            - method: 'equals'
+              values: ["", "-", "Mozilla"]
+      period: 60
+      limit: 5
+      duration: 3600
+      escalationRate: 2.0
 
     # Block suspicious HTTP methods
-    - id: block-suspicious-methods
-      type: flexible
-      enabled: true
+    - name: "block-suspicious-methods"
+      type: "flexible"
       conditions:
-        - field: method
-          method: equals
-          values: ["TRACE", "TRACK", "DEBUG", "OPTIONS"]
+        - field: 'header-request-method'
+          check:
+            - method: 'equals'
+              values: ["TRACE", "TRACK", "DEBUG"]
+      period: 60
+      limit: 1
+      duration: 86400
+      escalationRate: 1.0
 
     # Strict global rate limit
-    - id: global-rate-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "global-rate-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions: []
-      limit: 1000
       period: 3600
+      limit: 1000     # Strict limit
       duration: 1800
       escalationRate: 2.0
 
     # Country-specific strict limits
-    - id: risky-country-limit
-      type: composite
-      enabled: true
-      keys: ["ip"]
+    - name: "risky-country-limit"
+      type: "composite"
+      uniqueClientKey: ["ip"]
       conditions:
-        - field: country
-          method: equals
-          values: ["CN", "RU"]  # Adjust based on your threat model
-      limit: 10
+        - field: 'geo-country'
+          check:
+            - method: 'equals'
+              values: ["CN", "RU"]
       period: 60
+      limit: 10       # Very low limit
       duration: 7200  # 2 hour ban
       escalationRate: 5.0
 
-# API with strong authentication
-api:
-  enabled: true
-  auth:
-    enabled: true
-    username: "admin"
-    password: "CHANGE-THIS-TO-VERY-STRONG-PASSWORD"  # Min 20 chars, random
+sentry:
+  enabled: false
+  dsn: ''  # Set via SENTRY_DSN environment variable
+  debug: false
 
 # Security notes:
-# - Start in 'audit' mode and monitor logs before switching to 'normal'
-# - Whitelist your own IPs to avoid locking yourself out
-# - Test admin access before deploying
-# - Monitor metrics for false positives
-# - Adjust country blocks based on your legitimate traffic
-# - Use strong API password and restrict network access
-# - Keep GeoIP databases updated
-# - Regularly review and update threat feeds
+# - Test in 'audit' mode first to avoid false positives
+# - Whitelist your own IPs to avoid lockout
+# - Monitor metrics for blocked legitimate users
+# - Adjust country blocks based on your actual traffic
+# - Keep threat feeds updated
+# - Use strong API passwords and restrict network access
