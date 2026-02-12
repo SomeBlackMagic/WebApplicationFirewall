@@ -1,0 +1,134 @@
+# Production WAF Configuration
+# Recommended configuration for production deployments
+
+# Operating mode
+mode: normal  # Actively blocks requests
+
+# Server port
+port: 3000
+
+# Client IP detection
+detectClientIp:
+  headers:
+    - "x-forwarded-for"
+    - "x-real-ip"
+
+# Geolocation detection
+detectClientCountry:
+  method: geoip
+
+detectClientCity:
+  method: geoip
+
+# GeoIP databases
+geoip:
+  countryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
+  cityPath: '/app/geoip_data/GeoLite2-City.mmdb'
+
+# Proxy configuration
+proxy:
+  enabled: true
+  host: "http://backend:8080"
+  config:
+    changeOrigin: true
+    proxyTimeout: 30000
+
+# Logging
+log:
+  level: 'info'
+  transport: 'console'
+
+# Metrics
+metrics:
+  enabled: true
+  path: '/metrics'
+
+# Sentry error tracking (optional)
+sentry:
+  dsn: ""  # Set via SENTRY_DSN environment variable
+
+# Whitelist trusted sources
+whitelist:
+  enabled: true
+  ips:
+    - "10.0.0.0/8"        # Internal network
+    - "192.168.0.0/16"    # Internal network
+  countries: []
+  cities: []
+
+# Blacklist (optional)
+blacklist:
+  enabled: false
+
+# Jail system with file storage
+jailManager:
+  enabled: true
+  storage:
+    driver: file
+    driverConfig:
+      filePath: '/app/data/blocked_ips.json'
+      locker:
+        enabled: true
+        config:
+          retries: 5
+  syncInterval: 10000
+  syncAlways: false
+  filterRules:
+    # Login brute force protection
+    - id: login-bruteforce
+      type: composite
+      enabled: true
+      keys: ["ip"]
+      conditions:
+        - field: url
+          method: contains
+          values: ["/login", "/auth", "/signin"]
+        - field: method
+          method: equals
+          values: ["POST"]
+      limit: 5
+      period: 300
+      duration: 900
+      escalationRate: 2.0
+
+    # API rate limiting per IP + endpoint
+    - id: api-rate-limit
+      type: composite
+      enabled: true
+      keys: ["ip", "url"]
+      conditions:
+        - field: url
+          method: contains
+          values: ["/api/"]
+      limit: 100
+      period: 60
+      duration: 300
+      escalationRate: 1.5
+
+    # Global rate limit
+    - id: global-rate-limit
+      type: composite
+      enabled: true
+      keys: ["ip"]
+      conditions: []
+      limit: 5000
+      period: 3600
+      duration: 600
+      escalationRate: 1.3
+
+    # Block known bad bots
+    - id: block-bad-bots
+      type: flexible
+      enabled: true
+      conditions:
+        - field: user-agent
+          method: regex
+          values: ["(sqlmap|nikto|nmap|masscan|nessus)"]
+
+# API configuration
+api:
+  enabled: true
+  auth:
+    enabled: true
+    username: "admin"
+    password: "CHANGE-THIS-PASSWORD"  # Use strong password!

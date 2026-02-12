@@ -1,0 +1,135 @@
+# High-Traffic WAF Configuration
+# Optimized for high-throughput scenarios
+
+# Operating mode
+mode: normal
+
+# Server port
+port: 3000
+
+# Client IP detection
+detectClientIp:
+  headers:
+    - "x-forwarded-for"
+
+# Geolocation detection
+detectClientCountry:
+  method: geoip
+
+detectClientCity:
+  method: geoip
+
+# GeoIP databases
+geoip:
+  countryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
+  cityPath: '/app/geoip_data/GeoLite2-City.mmdb'
+
+# Proxy configuration
+proxy:
+  enabled: true
+  host: "http://backend:8080"
+  config:
+    changeOrigin: true
+    proxyTimeout: 10000  # Lower timeout for high traffic
+
+# Logging (reduced verbosity for performance)
+log:
+  level: 'warn'  # Only warnings and errors
+  transport: 'console'
+
+# Metrics
+metrics:
+  enabled: true
+  path: '/metrics'
+
+# Whitelist trusted sources to bypass all checks
+whitelist:
+  enabled: true
+  ips:
+    - "10.0.0.0/8"
+    - "192.168.0.0/16"
+
+# Blacklist
+blacklist:
+  enabled: false
+
+# Jail system optimized for high traffic
+jailManager:
+  enabled: true
+  storage:
+    driver: file
+    driverConfig:
+      filePath: '/app/data/blocked_ips.json'
+      locker:
+        enabled: true
+        config:
+          retries: 3
+  syncInterval: 30000  # Longer interval for less I/O
+  syncAlways: false    # Don't sync on every ban
+  filterRules:
+    # Strict login protection
+    - id: login-bruteforce
+      type: composite
+      enabled: true
+      keys: ["ip"]
+      conditions:
+        - field: url
+          method: equals
+          values: ["/api/auth/login"]
+        - field: method
+          method: equals
+          values: ["POST"]
+      limit: 3           # Very strict
+      period: 300
+      duration: 1800
+      escalationRate: 3.0
+
+    # Per-endpoint API limits (relaxed for legitimate high traffic)
+    - id: api-per-endpoint
+      type: composite
+      enabled: true
+      keys: ["ip", "url"]
+      conditions:
+        - field: url
+          method: contains
+          values: ["/api/"]
+      limit: 500         # Higher limit
+      period: 60
+      duration: 180      # Shorter ban
+      escalationRate: 1.3
+
+    # High global limit
+    - id: global-rate-limit
+      type: composite
+      enabled: true
+      keys: ["ip"]
+      conditions: []
+      limit: 50000       # Very high limit
+      period: 3600
+      duration: 300
+      escalationRate: 1.2
+
+    # Block obvious attacks only
+    - id: block-scanners
+      type: flexible
+      enabled: true
+      conditions:
+        - field: user-agent
+          method: regex
+          values: ["(sqlmap|nikto|masscan|nessus|acunetix)"]
+
+# API
+api:
+  enabled: true
+  auth:
+    enabled: true
+    username: "admin"
+    password: "CHANGE-THIS-PASSWORD"
+
+# Performance notes:
+# - Reduced logging (warn level)
+# - Longer sync intervals
+# - Fewer rules (each rule adds overhead)
+# - Higher rate limits (focus on obvious attacks)
+# - Whitelist internal traffic
+# - Shorter ban durations (reduce storage size)

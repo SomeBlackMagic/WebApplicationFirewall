@@ -1,0 +1,65 @@
+# Basic WAF Configuration
+# This is a minimal configuration to get started quickly
+
+# Operating mode (use 'audit' for testing, 'normal' for production)
+mode: audit
+
+# Server port
+port: 3000
+
+# Client IP detection (important if behind a proxy)
+detectClientIp:
+  headers:
+    - "x-forwarded-for"
+
+# GeoIP databases for geolocation
+# Download from: https://github.com/P3TERX/GeoLite.mmdb
+geoip:
+  countryPath: './GeoLite2-Country.mmdb'
+  cityPath: './GeoLite2-City.mmdb'
+
+# Proxy to your backend
+proxy:
+  enabled: true
+  host: "http://localhost:8080"  # Change to your backend URL
+
+# Logging
+log:
+  level: 'info'
+  transport: 'console'
+
+# Metrics (optional but recommended)
+metrics:
+  enabled: true
+  path: '/metrics'
+
+# Jail system with a simple rate limit
+jailManager:
+  enabled: true
+  storage:
+    driver: memory  # Use 'file' for production
+  syncInterval: 5000
+  syncAlways: false
+  filterRules:
+    # Global rate limit
+    - id: global-rate-limit
+      type: composite
+      enabled: true
+      keys: ["ip"]
+      conditions: []
+      limit: 1000
+      period: 60
+      duration: 300
+      escalationRate: 1.5
+
+# Whitelist (optional)
+whitelist:
+  enabled: false
+
+# Blacklist (optional)
+blacklist:
+  enabled: false
+
+# API (optional)
+api:
+  enabled: false
