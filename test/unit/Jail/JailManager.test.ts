@@ -7,6 +7,7 @@ import {createRequest, createResponse} from "node-mocks-http";
 import {IBannedIPItem} from "@waf/WAFMiddleware";
 import {Registry} from "prom-client";
 import {Metrics} from "@waf/Metrics/Metrics";
+// @ts-ignore
 import {MetricsHelper} from "@test/Helpers/MetricsHelper";
 
 jest.useFakeTimers();
@@ -35,9 +36,11 @@ describe('Jail Manager', () => {
         const metricRegister: Registry = new Registry();
         let defaultMetrics: Metrics;
 
-        beforeEach(() => {
+        beforeEach(async () => {
             defaultMetrics = MetricsHelper.buildMetrics(metricRegister);
             jailManager = new JailManager({enabled: true, filterRules: []}, null, defaultMetrics);
+            // Initialize metrics for tests
+            await jailManager.bootstrap();
         });
 
         afterEach(() => {
@@ -197,7 +200,8 @@ describe('Jail Manager', () => {
             ];
 
             const service = new JailManager({enabled: false, filterRules: rulesConfig});
-
+            // Call loadRules explicitly since bootstrap() won't run with enabled: false
+            service.loadRules();
 
             expect(service['rules'].length).toBe(3);
             expect(service['rules'][0] instanceof CompositeRule).toBe(true);
@@ -205,15 +209,15 @@ describe('Jail Manager', () => {
             expect(service['rules'][2] instanceof FlexibleRule).toBe(true);
         });
 
-        it('should throw when an invalid rule type is provided', () => {
+        it('should throw when an invalid rule type is provided', async () => {
             const invalidRule: IAbstractRuleConfig = {type: 'Invalid', name: 'foo'};
 
             const rulesConfig: IAbstractRuleConfig[] = [invalidRule];
 
-            expect(() => {
-                new JailManager({enabled: true, filterRules: rulesConfig});
+            const service = new JailManager({enabled: true, filterRules: rulesConfig});
 
-            }).toThrow('Can not found observer for rule type - Invalid');
+            // Bootstrap will call loadRules() which should throw
+            await expect(service.bootstrap()).rejects.toThrow('Can not found observer for rule type - Invalid');
         });
     });
 

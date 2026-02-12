@@ -77,16 +77,8 @@ export class WAFMiddleware {
             this.geoIP2 = GeoIP2.get();
         }
 
-        if(this.metricsInstance.isEnabled()) {
-            this.bootstrapMetrics();
-        }
-
         if (!underAttackMiddleware) {
             this.underAttackMiddleware = UnderAttackMiddleware.get();
-        }
-
-        if(this.config.bannedResponse?.htmlLink) {
-            this.bootstrapBannedResponse();
         }
 
     }
@@ -96,6 +88,19 @@ export class WAFMiddleware {
          ContentLoader.load(this.config.bannedResponse.htmlLink).then((html: string) => {
              this.config.bannedResponse.html = html
         });
+    }
+
+    public bootstrap() {
+        this.log.info('WAF Middleware bootstrap');
+        this.underAttackMiddleware.bootstrap();
+
+        if(this.config.bannedResponse?.htmlLink) {
+            this.bootstrapBannedResponse();
+        }
+
+        if(this.metricsInstance.isEnabled()) {
+            this.bootstrapMetrics();
+        }
     }
 
     public bootstrapMetrics() {
@@ -239,6 +244,7 @@ export class WAFMiddleware {
     public detectRequestId(req: Request) {
         return req.header(this.config.detectClientRequestId.header) || 'not-detected';
     }
+
 }
 
 export interface IWAFMiddlewareConfig {

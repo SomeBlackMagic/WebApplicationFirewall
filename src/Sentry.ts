@@ -12,6 +12,10 @@ export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
         appVersion: string,
     ) {
         super();
+        this.config = Object.assign({
+            enabled: false,
+        }, config);
+
         if (this.config?.enabled) {
             this.sentryInstance = SentryLib.init({
                 enabled: true,

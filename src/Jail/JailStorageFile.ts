@@ -20,7 +20,7 @@ export class JailStorageFile implements JailStorageInterface {
         private readonly metricsInstance?: Metrics,
         private readonly logger?: LoggerInterface
     ) {
-        if(!this.config.filePath) {
+        if(!this.config?.filePath) {
             this.config.filePath = process.cwd() + '/data/blocked_ips.json'
         }
 

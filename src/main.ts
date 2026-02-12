@@ -7,13 +7,13 @@ import {IJailManagerConfig, JailManager} from "@waf/Jail/JailManager";
 import {Api, IApiConfig} from "@waf/Api";
 import {ConfigLoader} from "@waf/ConfigLoader";
 import {GeoIP2} from "@waf/GeoIP2";
-import {env, envBoolean} from "@waf/Utils/Env";
+import {envBoolean} from "@waf/Utils/Env";
 import {Log} from "@waf/Log";
 import cookieParser from 'cookie-parser';
 import sourceMapSupport from 'source-map-support'
 import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
-import {IWhitelistConfig, Whitelist} from "@waf/Static/Whitelist";
-import {Blacklist, IBlacklistConfig} from "@waf/Static/Blacklist";
+import {Whitelist} from "@waf/Static/Whitelist";
+import {Blacklist} from "@waf/Static/Blacklist";
 import {ISentryConfig, Sentry} from "@waf/Sentry";
 import {UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
 import bodyParser from 'body-parser';
@@ -52,7 +52,7 @@ interface AppConfig {
 
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>()
-    Sentry.build(appConfig.sentry, "__DEV_DIRTY__");
+    Sentry.build(appConfig?.sentry, "__DEV_DIRTY__");
     await GeoIP2.build().init();
 
     const app = express();
@@ -60,11 +60,11 @@ interface AppConfig {
     app.use(bodyParser.json())
     app.disable('x-powered-by');
 
-    const api = new Api(appConfig.api, app);
+    const api = new Api(appConfig?.api, app);
 
-    Metrics.build(appConfig.metrics, app).bootstrap();
+    Metrics.build(appConfig?.metrics, app).bootstrap();
 
-    await JailManager.build(appConfig.jailManager).bootstrap();
+    await JailManager.build(appConfig?.jailManager).bootstrap();
 
     Whitelist.buildInstance(appConfig?.wafMiddleware?.whitelist ?? {})
     Blacklist.buildInstance(appConfig?.wafMiddleware?.blacklist ?? {})
@@ -72,7 +72,8 @@ interface AppConfig {
 
     api.bootstrap();
 
-    const waf = new WAFMiddleware(appConfig.wafMiddleware ?? {});
+    const waf = new WAFMiddleware(appConfig?.wafMiddleware ?? {});
+    waf.bootstrap();
 
     app.get('/waf/healthz', (req, res) => {
         res.send("Hello from WAF server!");
@@ -100,6 +101,12 @@ interface AppConfig {
         }));
     }
 
+    if(!appConfig?.proxy?.host) {
+        Log.instance.emergency('Proxy host is not set. Can not continue.');
+        process.emit("SIGINT");
+        return;
+
+    }
     app.use('/', createProxyMiddleware({
         target: appConfig.proxy.host,
         changeOrigin: false

@@ -34,7 +34,7 @@ export class GeoIP2 extends Singleton<GeoIP2, []> {
         try {
             return this.readerCountry.country(ip)
         } catch (error) {
-            Log.instance.warn('Can not detect country from IP: ' + ip, error, 'GeoIP2')
+            // Log.instance.warn('Can not detect country from IP: ' + ip, error, 'GeoIP2')
             return null;
         }
 
@@ -47,7 +47,7 @@ export class GeoIP2 extends Singleton<GeoIP2, []> {
         try {
             return this.readerCity.city(ip)
         } catch (error) {
-            Log.instance.warn('Can not detect city from IP: ' + ip, error, 'GeoIP2')
+            // Log.instance.warn('Can not detect city from IP: ' + ip, error, 'GeoIP2')
             return null;
         }
 

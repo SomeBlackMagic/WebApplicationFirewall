@@ -16,14 +16,14 @@ metrics:
 
 wafMiddleware:
   #Policy Audit Mode configures waf to allow all traffic while logging all connections
-  #vthat would otherwise be dropped by policies. Default value audit
+  #that policies would otherwise drop. Default value: audit
   mode: normal # or audit
 
-  #bannedResponse:
-  #  httpCode: 429 # OPTIONAL Default: 429
-  #  json: '' # OPTIONAL Default: JSON object with error text
-  #  html: '' # OPTIONAL
-  #  htmlLink: '' # OPTIONAL
+  bannedResponse:
+    httpCode: 429 # OPTIONAL Default: 429
+    json: '' # OPTIONAL Default: JSON object with error text
+    html: '' # OPTIONAL
+    htmlLink: '' # OPTIONAL
 
   # Under Attack Mode configuration
   underAttack:
@@ -73,12 +73,6 @@ wafMiddleware:
       - name: "X-Bypass-UnderAttack"
         value: "secret-key-12345"
 
-    proofRateLimiter:
-      enabled: true
-      mode: 'strict' # or 'audit' - in strict mode, if the rate limit is exceeded, the request will be blocked, in audit mode, the request will be allowed, but logged
-      maxUsageCount: 1000 # Maximum number of requests per minute
-      expirationTimeMs: 60000 # Time in milliseconds after which the usage count is reset
-      cleanupIntervalMs: 60000 # Interval in milliseconds for cleaning up expired entries
 
   whitelist:
     ips: [ '10.0.0.1', '10.0.0.2' ] # OPTIONAL
@@ -176,7 +170,6 @@ jailManager:
       limit: 5              # If during the period the number of requests exceeds the limit, ban
       duration: 180         # Blocking by 180 seconds when the limit exceeds (measurement seconds)
       escalationRate: 1.1   # OPTIONAL
-
 
 
 sentry:

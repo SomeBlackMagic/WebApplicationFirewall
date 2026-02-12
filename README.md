@@ -155,7 +155,7 @@ The project includes Dockerfiles for building images:
     ```bash
     docker build -t my-waf-app -f .docker/prod.Dockerfile .
     # Pull the latest image (optional, docker run will do it if needed)
-    # docker pull ghcr.io/someblackmagic/web-applicat
+    # docker pull ghcr.io/someblackmagic/web-application-firewall:latest
     ```
 2.  **Prepare configuration and data:**
     *   Create a `config.yaml` file on the host machine.

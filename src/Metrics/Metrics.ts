@@ -19,6 +19,10 @@ export class Metrics extends Singleton<Metrics, []>{
         private readonly logger?: LoggerInterface
     ) {
         super();
+        this.config = Object.assign({
+            enabled: false,
+        }, config);
+
         if(!logger) {
             this.logger = Log.instance.withCategory('app.Metrics');
         }
@@ -26,8 +30,9 @@ export class Metrics extends Singleton<Metrics, []>{
 
     public bootstrap(registry?: Registry) {
         if(!this.config.enabled) {
-            return false;
+            return;
         }
+        this.logger.info('Metrics module bootstrap');
         if(!registry) {
             this.registerMetrics = new Registry();
         }

@@ -2,18 +2,26 @@ import {Request, Response} from "express-serve-static-core";
 import * as core from "express-serve-static-core";
 import {BanInfo, JailManager} from "@waf/Jail/JailManager";
 import {HttpBasicAuth, IHttpBasicAuthConfig} from "@waf/Utils/HttpBasicAuth";
+import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
+import {Log} from "@waf/Log";
 
 export class Api {
 
     private readonly authenticator: HttpBasicAuth
 
     public constructor(
-        private readonly moduleConfig: IApiConfig,
+        private readonly config: IApiConfig,
         private readonly webApp: core.Express,
-        private jailManager?: JailManager
+        private jailManager?: JailManager,
+        private logger?: LoggerInterface
     ) {
-
-        this.authenticator = new HttpBasicAuth(this.moduleConfig.auth);
+        this.config = Object.assign({
+            auth: {
+                enabled: false,
+            }
+        })
+        this.authenticator = new HttpBasicAuth(this.config.auth);
+        this.logger = Log.instance.withCategory('app.Api')
     }
 
     public bootstrap() {
@@ -21,6 +29,7 @@ export class Api {
             this.jailManager = JailManager.get();
         }
 
+        this.logger.info('Api module bootstrap');
         this.webApp.get('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.getBannedUsers.bind(this));
         this.webApp.delete('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.deleteBannedUsers.bind(this));
 

@@ -35,14 +35,22 @@ export class JailManager extends Singleton<JailManager, []>{
     ) {
         super();
         this.config = Object.assign({
+            enabled: false,
             storage: {
                 driver: 'memory',
                 driverConfig: {}
-            }
+            },
+            filterRules: []
+
         }, config);
 
+        // Initialize logger before any early returns
         if (!logger) {
             this.logger = Log.instance.withCategory('app.Jail.JailManager')
+        }
+
+        if(this.config.enabled != true) {
+            return;
         }
 
         this.storage = this.createStorageFromConfig(this.config.storage.driver, this.config.storage.driverConfig);
@@ -50,21 +58,24 @@ export class JailManager extends Singleton<JailManager, []>{
         if(!metricsInstance) {
             this.metricsInstance = Metrics.get();
         }
+    }
 
+    public async bootstrap() {
+        if(this.config.enabled === false) {
+            return;
+        }
+        this.logger.info('JailManager bootstrap');
         this.loadRules();
         if(this.metricsInstance.isEnabled()) {
             this.bootstrapMetrics();
         }
-    }
-
-    public async bootstrap() {
         await this.loadDataFromStorage();
         await this.startLoadingLoop(this.config?.loadInterval * 1000 || 30000);
         await this.startFlushingLoop(this.config?.flushInterval * 1000 || 30000);
     }
 
     public onStop() {
-        if(this.storeInterval) {
+        if(this.storeInterval && this.config.enabled === true) {
             clearInterval(this.storeInterval);
         }
     }
@@ -72,17 +83,17 @@ export class JailManager extends Singleton<JailManager, []>{
     private createStorageFromConfig(driverName: string, driverConfig: any) {
         switch (driverName) {
             case 'file':
-                return new JailStorageFile(driverConfig);
+                return new JailStorageFile(driverConfig ?? {});
             case 'operator':
-                return new JailStorageOperator(driverConfig);
+                return new JailStorageOperator(driverConfig ?? {});
             case 'memory':
                 this.logger.warn('Use InMemory storage');
-                return new JailStorageMemory(driverConfig);
+                return new JailStorageMemory(driverConfig ?? {});
         }
 
     }
 
-    public bootstrapMetrics() {
+    private bootstrapMetrics() {
         this.metrics['blocked'] = new promClient.Counter({
             name: 'waf_jail_reject_blocked',
             help: 'Count of users who rejected because he blocked',
@@ -99,12 +110,6 @@ export class JailManager extends Singleton<JailManager, []>{
             name: 'waf_jail_reject_by_rule',
             help: 'Count of users who rejected and banned because of rule',
             labelNames: ['country', 'city', 'ruleId'],
-            registers: [this.metricsInstance.getRegisters()]
-        });
-        this.metrics['storage_data'] = new promClient.Gauge({
-            name: 'waf_jail_storage_data',
-            help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
-            labelNames: ['country', 'city', 'ruleId', 'isBlocked', 'escalationCount'],
             registers: [this.metricsInstance.getRegisters()]
         });
     }
@@ -289,7 +294,7 @@ export type BanInfo = {
     unbanTime: number;
     escalationCount: number;
     metadata: IBanInfoMetaData
-};
+}
 
 
 interface IBanInfoMetaData  {

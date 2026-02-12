@@ -63,6 +63,7 @@ describe('WAFMiddleware', () => {
             const mockWhitelistCheck = jest.spyOn(defaultWhitelist, 'check').mockReturnValue(true);
 
             const middleware = new WAFMiddleware({}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+            middleware.bootstrapMetrics();
 
             const next = jest.fn();
             const req = createRequest();
@@ -86,6 +87,7 @@ describe('WAFMiddleware', () => {
             const mockWhitelistCheck = jest.spyOn(defaultBlacklist, 'check').mockReturnValue(true);
 
             const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+            middleware.bootstrapMetrics();
 
             const next = jest.fn();
             const req = createRequest();
@@ -118,6 +120,7 @@ describe('WAFMiddleware', () => {
             const mockJailManagerCheck = jest.spyOn(defaultJailManager, 'check').mockResolvedValue(true);
 
             const middleware = new WAFMiddleware({mode: 'normal'}, defaultJailManager, defaultWhitelist, defaultBlacklist, metrics);
+            middleware.bootstrapMetrics();
 
             const next = jest.fn();
             const req = createRequest();

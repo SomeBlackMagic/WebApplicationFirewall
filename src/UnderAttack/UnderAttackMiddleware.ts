@@ -27,11 +27,7 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         private readonly metrics?: UnderAttackMetrics,
     ) {
         super();
-        if (!this.config.enabled) {
-            return;
-        }
-
-        this.config = merge<object | IUnderAttackConfig, IUnderAttackConfig>({
+        this.config = merge<object|IUnderAttackConfig, IUnderAttackConfig>({
             enabled: false,
             challengeDurationMs: 1000 * 60 * 30,
             conditions: [],
@@ -77,9 +73,6 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         if (this.config.conditions.length > 0 && !conditions) {
             this.conditions = new UnderAttackConditions(this.config.conditions);
         }
-
-
-        this.loadChallengeHtml();
     }
 
     private loadChallengeHtml(): void {
@@ -93,6 +86,14 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             this.log.info('Loaded challenge page from', this.config.challengePage.path);
         })
 
+    }
+
+    public bootstrap(): void {
+        if (!this.config.enabled) {
+            return;
+        }
+        this.log.info('UnderAttackMiddleware bootstrap');
+        this.loadChallengeHtml();
     }
 
     public async middleware(req: Request, res: Response, next: NextFunction, clientIp: string, country: string, city: string, requestId: string): Promise<boolean> {

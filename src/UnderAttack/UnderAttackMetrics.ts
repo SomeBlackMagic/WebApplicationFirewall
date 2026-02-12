@@ -14,7 +14,10 @@ export class UnderAttackMetrics  extends Singleton<UnderAttackMetrics, []> {
             this.metricsInstance = Metrics.get();
         }
 
-        this.initializeMetrics();
+        // Only initialize metrics if metricsInstance is available and enabled
+        if(this.metricsInstance?.isEnabled?.()) {
+            this.initializeMetrics();
+        }
     }
 
     private initializeMetrics(): void {
