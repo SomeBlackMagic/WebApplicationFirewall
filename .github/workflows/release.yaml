@@ -52,7 +52,7 @@ jobs:
 
       - name: Create container from image
         run: |
-          docker run -e GITHUB_REF_NAME=${GITHUB_REF_NAME} --rm -v "$(pwd)/bin":/app/bin ${{ fromJSON(steps.meta.outputs.json).tags[0] }} npm run build:binary
+          docker run -e GITHUB_REF_NAME=${GITHUB_REF_NAME} --rm -v "$(pwd)/bin":/app/bin -v "$(pwd)/.node-binaries":/app/.node-binaries ${{ fromJSON(steps.meta.outputs.json).tags[0] }} npm run build:binary
 
       - name: Get existing release upload_url
         id: get_release

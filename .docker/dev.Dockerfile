@@ -1,6 +1,14 @@
 FROM node:22-alpine
 
 WORKDIR /app
+
+# Install required tools for SEA build
+RUN apk add --no-cache \
+    tar \
+    xz \
+    unzip \
+    bash
+
 COPY package.json /app
 COPY package-lock.json /app
 

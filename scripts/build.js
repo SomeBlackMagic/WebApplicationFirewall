@@ -39,7 +39,7 @@ esbuild.build({
     bundle: true,
     platform: 'node',
     outdir: 'dist',
-    sourcemap: true,
+    sourcemap: 'inline',
     target: 'node20',
     format: 'cjs',
     tsconfig: 'tsconfig.app.json',

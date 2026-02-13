@@ -45,3 +45,7 @@ test/Helpers/*.js.map
 bin
 .run
 **/*.min.html
+
+# SEA build artifacts
+.node-binaries
+sea-prep-*.blob
