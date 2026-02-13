@@ -63,7 +63,7 @@ interface AppConfig {
     const api = new Api(appConfig?.api, app);
 
     Metrics.build(appConfig?.metrics, app).bootstrap();
-
+    
     await JailManager.build(appConfig?.jailManager).bootstrap();
 
     Whitelist.buildInstance(appConfig?.wafMiddleware?.whitelist ?? {})
@@ -130,14 +130,12 @@ function exitHandler() {
 }
 
 function uncaughtExceptionHandler(error: Error, origin: any) {
-
-
     Log.instance.error('Uncaught Exception', error);
     (async () => {
         try {
             Sentry.get().captureException(error);
             await Sentry.get().getClient().flush();
-            JailManager.get().onStop();
+            JailManager?.get()?.onStop();
         } catch (e: Error | any) {
             console.error(e);
         }
@@ -153,7 +151,7 @@ function uncaughtRejectionHandler(reason: unknown, promise: Promise<unknown>) {
         try {
             Sentry.get()?.captureException(reason);
             await Sentry.get()?.getClient()?.flush();
-            JailManager.get().onStop();
+            JailManager?.get()?.onStop();
         } catch (e: Error | any) {
             console.error(e);
         }

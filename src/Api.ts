@@ -13,15 +13,16 @@ export class Api {
         private readonly config: IApiConfig,
         private readonly webApp: core.Express,
         private jailManager?: JailManager,
-        private logger?: LoggerInterface
+        private readonly logger?: LoggerInterface
     ) {
         this.config = Object.assign({
-            auth: {
-                enabled: false,
-            }
-        })
+            logLevel: 'info',
+        }, config)
         this.authenticator = new HttpBasicAuth(this.config.auth);
-        this.logger = Log.instance.withCategory('app.Api')
+
+        if (!this.logger) {
+            this.logger = Log.instance.withCategory('app.Api');
+        }
     }
 
     public bootstrap() {
@@ -39,7 +40,7 @@ export class Api {
     }
 
 
-    public getBannedUsers(req: Request, res: Response) {
+    protected getBannedUsers(req: Request, res: Response) {
         res.type('json').send(JSON.stringify(this.jailManager.getAllBlockedIp().map((item: BanInfo) => {
             // @ts-ignore
             item.unbanTimeISO = new Date(item.unbanTime).toISOString()
@@ -49,7 +50,7 @@ export class Api {
         })));
     }
 
-    public deleteBannedUsers(req: Request, res: Response) {
+    protected deleteBannedUsers(req: Request, res: Response) {
         if(!req.body?.ip) {
             res.type('json').status(500).send(JSON.stringify({msg: 'ip is required'}));
         }
