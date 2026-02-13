@@ -63,7 +63,10 @@ function buildPlatform(platform) {
 
   // Step 1: Generate SEA blob
   console.log(`[1/4] Generating SEA blob for ${platform.name}...`);
-  exec(`node --experimental-sea-config "${seaConfigPath}"`);
+  // Use Linux Node.js binary to generate blob (can execute on any platform)
+  // Blob is platform-independent data, only Node.js version matters (v22)
+  const nodeBinaryForGeneration = path.join(BINARIES_DIR, 'node-linux');
+  exec(`"${nodeBinaryForGeneration}" --experimental-sea-config "${seaConfigPath}"`);
 
   if (!fs.existsSync(blobPath)) {
     throw new Error(`Failed to generate blob: ${blobPath}`);
