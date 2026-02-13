@@ -183,7 +183,7 @@ curl -H "X-Forwarded-For: 1.2.3.4" http://localhost:3000/
 2. **Check the logs** - the WAF logs the detected IP:
 
 ```
-[INFO] Request from IP: 1.2.3.4
+[TRACE] Request from IP: 1.2.3.4
 ```
 
 3. **Use the API** to check banned IPs include the correct client IP:

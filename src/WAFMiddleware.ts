@@ -127,6 +127,7 @@ export class WAFMiddleware {
     public use(): RequestHandler {
         return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
             const clientIp = this.detectClientIp(req);
+            this.log.trace('Request from IP', [clientIp]);
             const country = this.detectClientCountry(req, clientIp);
             const city = this.detectClientCity(req, clientIp);
             const requestId = this.detectRequestId(req);

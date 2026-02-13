@@ -1,10 +1,20 @@
 import {NextFunction, Request, Response} from "express-serve-static-core";
+import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
+import {Log} from "@waf/Log";
+import {merge} from "lodash";
 
 export class HttpBasicAuth {
     public constructor(
-        private readonly config: IHttpBasicAuthConfig
+        private readonly config: IHttpBasicAuthConfig,
+        private readonly logger?: LoggerInterface
     ) {
+        this.config = merge<object|IHttpBasicAuthConfig, IHttpBasicAuthConfig>({
+            enabled: false,
+        }, config);
 
+        if (!this.logger) {
+            this.logger = Log.instance.withCategory('app.Api.Auth');
+        }
     }
 
     public authentication(req: Request, res: Response, next: NextFunction) {
@@ -39,6 +49,7 @@ export class HttpBasicAuth {
             // If Authorized user
             next();
         } else {
+            this.logger.warn('Unauthorized user', [user, req.ip]);
             res.header('WWW-Authenticate', 'Basic realm="WAF authentication"');
             res.sendStatus(401);
 

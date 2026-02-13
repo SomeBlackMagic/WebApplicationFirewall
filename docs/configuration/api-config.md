@@ -312,23 +312,7 @@ fetch('http://localhost:3000/waf/jail-manager/baned-users', {
 
 Enable logging to monitor API access:
 
-```yaml
-log:
-  level: 'info'  # or 'debug' for more detail
-```
-
-API requests are logged:
-
-```
-[INFO] API request: GET /waf/jail-manager/baned-users from 192.168.1.10
-[INFO] API request: DELETE /waf/jail-manager/baned-users from 192.168.1.10
-```
-
-Failed auth attempts:
-
-```
-[WARN] API authentication failed for /waf/jail-manager/baned-users
-```
+### TODO
 
 ## Troubleshooting
 
