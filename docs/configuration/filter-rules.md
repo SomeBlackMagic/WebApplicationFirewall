@@ -17,17 +17,15 @@ All rules share these common fields:
 ```yaml
 jailManager:
   filterRules:
-    - id: unique-rule-id
+    - name: unique-rule-name
       type: static | flexible | composite
-      enabled: true | false
       # Type-specific fields...
 ```
 
 ### Common Fields
 
-- **id**: Unique identifier for the rule (used in logs, metrics, ban metadata)
+- **name**: Unique identifier for the rule (used in logs, metrics, ban metadata)
 - **type**: Rule type (`static`, `flexible`, or `composite`)
-- **enabled**: Whether the rule is active
 
 ## Rule Types
 
@@ -43,9 +41,8 @@ Block IPs from an external JSON list loaded via URL.
 **Configuration**:
 
 ```yaml
-- id: static-blacklist-feed
+- name: static-blacklist-feed
   type: static
-  enabled: true
   linkUrl: "https://example.com/blocklist.json"
   updateInterval: 60000  # milliseconds
 ```
@@ -67,9 +64,8 @@ Block IPs from an external JSON list loaded via URL.
 **Example**:
 
 ```yaml
-- id: abuse-ip-db
+- name: abuse-ip-db
   type: static
-  enabled: true
   linkUrl: "https://api.abuseipdb.com/api/v2/blacklist"
   updateInterval: 3600000  # Update hourly
 ```
@@ -89,16 +85,16 @@ Block requests based on matching specific properties (URL, User-Agent, country, 
 **Configuration**:
 
 ```yaml
-- id: block-bad-bots
+- name: block-bad-bots
   type: flexible
-  enabled: true
   conditions:
     - field: user-agent
-      method: contains
-      values:
-        - "bot"
-        - "scraper"
-        - "crawler"
+      check:
+        - method: equals
+          values:
+            - "bot"
+            - "scraper"
+            - "crawler"
 ```
 
 **Fields**:
@@ -106,8 +102,9 @@ Block requests based on matching specific properties (URL, User-Agent, country, 
 
 **Condition Fields**:
 - **field**: Request property to check (see [Available Fields](#available-fields))
-- **method**: Comparison method (see [Comparison Methods](#comparison-methods))
-- **values**: Array of values to compare against
+- **check**: Array of check methods and values
+  - **method**: Comparison method (see [Comparison Methods](#comparison-methods))
+  - **values**: Array of values to compare against
 
 **Available Fields**:
 - `ip` - Client IP address
@@ -120,50 +117,49 @@ Block requests based on matching specific properties (URL, User-Agent, country, 
 
 **Comparison Methods**:
 - `equals` - Exact match
-- `notEquals` - Does not match
-- `contains` - Value contains substring (case-insensitive)
-- `notContains` - Value does not contain substring
-- `regex` - Regular expression match
+- `regexp` - Regular expression match
 
 **Examples**:
 
 **Block access to /admin from non-US countries**:
 ```yaml
-- id: admin-geo-block
+- name: admin-geo-block
   type: flexible
-  enabled: true
   conditions:
     - field: url
-      method: contains
-      values: ["/admin"]
+      check:
+        - method: equals
+          values: ["/admin"]
     - field: country
-      method: notEquals
-      values: ["US", "GB"]
+      check:
+        - method: equals
+          values: ["US", "GB"]
 ```
 
 **Block specific user agents**:
 ```yaml
-- id: block-scrapers
+- name: block-scrapers
   type: flexible
-  enabled: true
   conditions:
     - field: user-agent
-      method: regex
-      values: ["(bot|crawler|spider|scraper)"]
+      check:
+        - method: regexp
+          values: ["(bot|crawler|spider|scraper)"]
 ```
 
 **Block POST to sensitive endpoints**:
 ```yaml
-- id: block-post-to-config
+- name: block-post-to-config
   type: flexible
-  enabled: true
   conditions:
     - field: method
-      method: equals
-      values: ["POST"]
+      check:
+        - method: equals
+          values: ["POST"]
     - field: url
-      method: contains
-      values: ["/config", "/settings"]
+      check:
+        - method: equals
+          values: ["/config", "/settings"]
 ```
 
 **Behavior**: Requests matching ALL conditions are immediately blocked. The IP is NOT added to the jail.
@@ -182,10 +178,9 @@ Rate limiting with request counting and threshold-based banning.
 **Configuration**:
 
 ```yaml
-- id: api-rate-limit
+- name: api-rate-limit
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions: []
   limit: 100
   period: 60
@@ -194,7 +189,7 @@ Rate limiting with request counting and threshold-based banning.
 ```
 
 **Fields**:
-- **keys**: Fields to group requests by (see [Grouping Keys](#grouping-keys))
+- **uniqueClientKey**: Fields to group requests by (see [Grouping Keys](#grouping-keys))
 - **conditions**: Optional conditions to narrow the scope (same as Flexible rules)
 - **limit**: Maximum requests allowed within the period
 - **period**: Time window in seconds
@@ -218,10 +213,9 @@ Available keys:
 
 **Simple IP-based rate limit**:
 ```yaml
-- id: global-rate-limit
+- name: global-rate-limit
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions: []
   limit: 1000
   period: 60  # 1000 requests per 60 seconds
@@ -231,17 +225,18 @@ Available keys:
 
 **Login brute force protection**:
 ```yaml
-- id: login-bruteforce
+- name: login-bruteforce
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions:
     - field: url
-      method: equals
-      values: ["/api/login", "/auth/login"]
+      check:
+        - method: equals
+          values: ["/api/login", "/auth/login"]
     - field: method
-      method: equals
-      values: ["POST"]
+      check:
+        - method: equals
+          values: ["POST"]
   limit: 5
   period: 300  # 5 login attempts per 5 minutes
   duration: 900  # Ban for 15 minutes
@@ -250,14 +245,14 @@ Available keys:
 
 **API endpoint protection per IP**:
 ```yaml
-- id: api-per-endpoint-limit
+- name: api-per-endpoint-limit
   type: composite
-  enabled: true
-  keys: ["ip", "url"]  # Separate limits per IP+URL combination
+  uniqueClientKey: ["ip", "url"]  # Separate limits per IP+URL combination
   conditions:
     - field: url
-      method: contains
-      values: ["/api/"]
+      check:
+        - method: regexp
+          values: ["^/api/"]
   limit: 100
   period: 60
   duration: 600
@@ -266,14 +261,14 @@ Available keys:
 
 **Strict country-based limit**:
 ```yaml
-- id: risky-country-limit
+- name: risky-country-limit
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions:
     - field: country
-      method: equals
-      values: ["CN", "RU"]
+      check:
+        - method: equals
+          values: ["CN", "RU"]
   limit: 10
   period: 60
   duration: 3600
@@ -281,7 +276,7 @@ Available keys:
 ```
 
 **Behavior**:
-1. Requests matching conditions are counted per keys combination
+1. Requests matching conditions are counted per uniqueClientKey combination
 2. When limit is exceeded within period, IP is added to jail
 3. Subsequent violations increase ban time via escalation
 
@@ -289,8 +284,8 @@ Available keys:
 
 Rules are evaluated in this order:
 
-1. **Whitelist** (if enabled) - Bypasses all rules
-2. **Blacklist** (if enabled) - Immediately blocks
+1. **Whitelist** (if configured) - Bypasses all rules
+2. **Blacklist** (if configured) - Immediately blocks
 3. **Static rules** - Blocks from external lists
 4. **Jail check** - Blocks if IP is already banned
 5. **Flexible rules** - Blocks based on conditions
@@ -309,69 +304,69 @@ jailManager:
       filePath: './data/blocked_ips.json'
   filterRules:
     # External threat feed
-    - id: threat-intelligence
+    - name: threat-intelligence
       type: static
-      enabled: true
       linkUrl: "https://feeds.example.com/malicious-ips.json"
       updateInterval: 3600000
 
     # Block bad bots
-    - id: block-bots
+    - name: block-bots
       type: flexible
-      enabled: true
       conditions:
         - field: user-agent
-          method: regex
-          values: ["(bot|crawler|scraper|spider)"]
+          check:
+            - method: regexp
+              values: ["(bot|crawler|scraper|spider)"]
 
     # Admin access - US only
-    - id: admin-geo-block
+    - name: admin-geo-block
       type: flexible
-      enabled: true
       conditions:
         - field: url
-          method: contains
-          values: ["/admin", "/wp-admin"]
+          check:
+            - method: equals
+              values: ["/admin", "/wp-admin"]
         - field: country
-          method: notEquals
-          values: ["US"]
+          check:
+            - method: equals
+              values: ["US"]
 
     # Login brute force protection
-    - id: login-protection
+    - name: login-protection
       type: composite
-      enabled: true
-      keys: ["ip"]
+      uniqueClientKey: ["ip"]
       conditions:
         - field: url
-          method: contains
-          values: ["/login", "/auth"]
+          check:
+            - method: regexp
+              values: ["/(login|auth)"]
         - field: method
-          method: equals
-          values: ["POST"]
+          check:
+            - method: equals
+              values: ["POST"]
       limit: 5
       period: 300
       duration: 900
       escalationRate: 2.0
 
     # API rate limiting
-    - id: api-rate-limit
+    - name: api-rate-limit
       type: composite
-      enabled: true
-      keys: ["ip", "url"]
+      uniqueClientKey: ["ip", "url"]
       conditions:
         - field: url
-          method: contains
-          values: ["/api/"]
+          check:
+            - method: regexp
+              values: ["^/api/"]
       limit: 100
       period: 60
       duration: 300
       escalationRate: 1.5
 
     # Global rate limit
-    - id: global-rate-limit
+    - name: global-rate-limit
       type: composite
-      enabled: true
-      keys: ["ip"]
+      uniqueClientKey: ["ip"]
       conditions: []
       limit: 10000
       period: 3600
@@ -386,7 +381,8 @@ jailManager:
 Always test new rules in `audit` mode first:
 
 ```yaml
-mode: audit
+wafMiddleware:
+  mode: audit
 ```
 
 In audit mode:
@@ -413,7 +409,8 @@ Ensure legitimate traffic isn't being flagged.
 Once satisfied, switch to `normal` mode:
 
 ```yaml
-mode: normal
+wafMiddleware:
+  mode: normal
 ```
 
 ## Best Practices
@@ -425,21 +422,21 @@ mode: normal
 5. **Use escalation** - Progressive punishment for repeat offenders
 6. **Combine rule types** - Layer defenses (static + flexible + composite)
 7. **Regular review** - Update rules based on attack patterns
-8. **Document rules** - Use descriptive IDs and comments
+8. **Document rules** - Use descriptive names and comments
 
 ## Common Patterns
 
 ### Protect Login Endpoint
 
 ```yaml
-- id: login-bruteforce-protection
+- name: login-bruteforce-protection
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions:
     - field: url
-      method: equals
-      values: ["/api/auth/login"]
+      check:
+        - method: equals
+          values: ["/api/auth/login"]
   limit: 5
   period: 300
   duration: 1800
@@ -450,26 +447,27 @@ mode: normal
 
 ```yaml
 # Block non-whitelisted countries
-- id: admin-geo-fence
+- name: admin-geo-fence
   type: flexible
-  enabled: true
   conditions:
     - field: url
-      method: contains
-      values: ["/admin"]
+      check:
+        - method: equals
+          values: ["/admin"]
     - field: country
-      method: notEquals
-      values: ["US", "GB"]
+      check:
+        - method: equals
+          values: ["US", "GB"]
 
 # Rate limit admin access
-- id: admin-rate-limit
+- name: admin-rate-limit
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions:
     - field: url
-      method: contains
-      values: ["/admin"]
+      check:
+        - method: equals
+          values: ["/admin"]
   limit: 50
   period: 60
   duration: 600
@@ -480,28 +478,28 @@ mode: normal
 
 ```yaml
 # Per-endpoint limits
-- id: api-per-endpoint
+- name: api-per-endpoint
   type: composite
-  enabled: true
-  keys: ["ip", "url"]
+  uniqueClientKey: ["ip", "url"]
   conditions:
     - field: url
-      method: contains
-      values: ["/api/"]
+      check:
+        - method: regexp
+          values: ["^/api/"]
   limit: 100
   period: 60
   duration: 300
   escalationRate: 1.5
 
 # Global API limit
-- id: api-global
+- name: api-global
   type: composite
-  enabled: true
-  keys: ["ip"]
+  uniqueClientKey: ["ip"]
   conditions:
     - field: url
-      method: contains
-      values: ["/api/"]
+      check:
+        - method: regexp
+          values: ["^/api/"]
   limit: 1000
   period: 60
   duration: 600
@@ -512,10 +510,9 @@ mode: normal
 
 ### Rule not triggering
 
-1. Check `enabled: true`
-2. Verify conditions match actual requests
-3. Check rule order (earlier rules may block first)
-4. Enable debug logging: `log.level: debug`
+1. Verify conditions match actual requests
+2. Check rule order (earlier rules may block first)
+3. Enable debug logging in application settings
 
 ### Too many false positives
 

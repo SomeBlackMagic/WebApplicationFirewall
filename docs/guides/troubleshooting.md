@@ -1,37 +1,29 @@
 # Troubleshooting Guide
 
-Common issues and their solutions when running the WAF.
+Common issues and solutions when running the WAF.
 
-## Installation Issues
-
-### GeoIP Database Not Found
-
-**Error**:
-```
-Error: ENOENT: no such file or directory, open './GeoLite2-Country.mmdb'
-```
-
-**Solution**:
-1. Download databases:
-   ```bash
-   wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
-   wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
-   ```
-2. Verify paths in `config.yaml` match file locations
+## Startup Issues
 
 ### Port Already in Use
 
-**Error**:
-```
-Error: listen EADDRINUSE: address already in use :::3000
-```
+**Error**: `Error: listen EADDRINUSE: address already in use :::3000`
+
+**Cause**: Another process is using port 3000.
 
 **Solution**:
 ```bash
 # Find process using port 3000
 sudo lsof -i :3000
-# Or change port in config.yaml
-port: 3001
+
+# Kill the process
+sudo kill -9 <PID>
+
+# Or change port via environment variable
+export PORT=3001
+npm start
+
+# Or with Docker
+docker run -e PORT=3001 -p 3001:3001 waf
 ```
 
 ### npm install Fails
@@ -67,8 +59,8 @@ npm install
 **Error**: `Invalid configuration: mode must be 'audit' or 'normal'`
 
 **Solution**: Check for typos in config values. Valid options:
-- `mode`: `audit` or `normal`
-- `detectClientCountry.method`: `geoip` or `header`
+- `wafMiddleware.mode`: `audit` or `normal`
+- `wafMiddleware.detectClientCountry.method`: `geoip` or `header`
 - `jailManager.storage.driver`: `memory` or `file`
 
 ## IP Detection Issues
@@ -80,22 +72,25 @@ npm install
 **Cause**: IP detection not configured for your proxy setup
 
 **Solution**:
-1. Enable debug logging:
+1. Configure correct headers:
    ```yaml
-   log:
-     level: debug
+   wafMiddleware:
+     detectClientIp:
+       headers:
+         - "x-forwarded-for"  # For most proxies
+         - "cf-connecting-ip"  # For Cloudflare
+         - "x-real-ip"         # For Nginx
    ```
-2. Check logs for detected IP:
-   ```
-   [DEBUG] Detected client IP: 127.0.0.1 from header: x-forwarded-for
-   ```
-3. Configure correct headers:
+
+2. Enable audit mode to see detected IPs in logs:
    ```yaml
-   detectClientIp:
-     headers:
-       - "x-forwarded-for"  # For most proxies
-       - "cf-connecting-ip"  # For Cloudflare
-       - "x-real-ip"         # For Nginx
+   wafMiddleware:
+     mode: audit
+   ```
+
+3. Check logs for detected IP:
+   ```
+   [DEBUG] Detected client IP: x.x.x.x from header: x-forwarded-for
    ```
 
 See [Client IP Detection](../configuration/client-ip-detection.md) for details.
@@ -128,6 +123,11 @@ location / {
 - Update databases monthly
 - For testing, use public IPs
 - Check database is loaded: Look for startup log `GeoIP databases loaded successfully`
+- Verify environment variables are set:
+  ```bash
+  echo $GEOIP_COUNTRY_PATH
+  echo $GEOIP_CITY_PATH
+  ```
 
 ### Wrong Country Detected
 
@@ -146,16 +146,15 @@ mv GeoLite2-Country.mmdb.new GeoLite2-Country.mmdb
 ### Rules Not Triggering
 
 **Checklist**:
-1. Rule enabled? `enabled: true`
-2. Conditions match? Check field names and values
-3. Mode set correctly? Use `audit` to test without blocking
-4. Check logs:
+1. Conditions match? Check field names and values
+2. Mode set correctly? Use `audit` to test without blocking:
    ```yaml
-   log:
-     level: debug
+   wafMiddleware:
+     mode: audit
    ```
+3. Check logs for rule evaluation (enable audit mode for verbose logging)
 
-**Debug**:
+**Debug logs will show**:
 ```
 [DEBUG] Evaluating rule: my-rule
 [DEBUG] Rule conditions: url=/admin, method=POST
@@ -167,38 +166,94 @@ mv GeoLite2-Country.mmdb.new GeoLite2-Country.mmdb
 **Solutions**:
 1. **Whitelist legitimate sources**:
    ```yaml
-   whitelist:
-     enabled: true
-     ips: ["your-office-ip"]
+   wafMiddleware:
+     whitelist:
+       ips: ["your-office-ip"]
+       ipSubnet: ["192.168.1.0/24"]
    ```
 
 2. **Relax rule limits**:
    ```yaml
    # From strict
-   limit: 10
-   period: 60
+   - name: api-limit
+     type: composite
+     limit: 10
+     period: 60
+
    # To relaxed
-   limit: 100
-   period: 60
+   - name: api-limit
+     type: composite
+     limit: 100
+     period: 60
    ```
 
 3. **Add more specific conditions**:
    ```yaml
-   conditions:
-     - field: url
-       method: equals  # More specific than 'contains'
-       values: ["/exact/path"]
+   # Too broad
+   - name: block-all-post
+     type: flexible
+     conditions:
+       - field: method
+         check:
+           - method: equals
+             values: ["POST"]
+
+   # More specific
+   - name: block-specific-post
+     type: flexible
+     conditions:
+       - field: method
+         check:
+           - method: equals
+             values: ["POST"]
+       - field: url
+         check:
+           - method: equals
+             values: ["/admin/delete"]
    ```
 
 ### Rules Too Permissive
 
-**Solution**: Tighten rules progressively
-1. Start with high limits in audit mode
-2. Monitor metrics to find appropriate thresholds
-3. Gradually decrease limits
-4. Switch to normal mode
+**Solutions**:
+1. Decrease limits:
+   ```yaml
+   - name: login-limit
+     type: composite
+     limit: 5   # Stricter
+     period: 300
+   ```
 
-## Ban Storage Issues
+2. Add more rules for different endpoints
+
+3. Combine flexible and composite rules
+
+## Jail System Issues
+
+### IPs Not Being Banned
+
+**Causes**:
+1. WAF in `audit` mode
+2. IP is whitelisted
+3. Limit not exceeded
+
+**Solutions**:
+1. Switch to normal mode:
+   ```yaml
+   wafMiddleware:
+     mode: normal
+   ```
+
+2. Check whitelist:
+   ```yaml
+   wafMiddleware:
+     whitelist:
+       ips: []  # Make sure offending IP not listed
+   ```
+
+3. Check API to see current bans:
+   ```bash
+   curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+   ```
 
 ### Bans Not Persisting After Restart
 
@@ -213,251 +268,206 @@ jailManager:
       filePath: './data/blocked_ips.json'
 ```
 
-### File Lock Errors
+### Ban File Lock Errors
 
-**Error**: `Lock file is already being held`
+**Error**: `Error: Lock file is already being held`
 
-**Causes**:
-- Multiple WAF instances writing to same file
-- Slow storage (network drive)
-- High write frequency
-
-**Solutions**:
-1. Increase retries:
-   ```yaml
-   locker:
-     config:
-       retries: 10
-   ```
-2. Increase sync interval:
-   ```yaml
-   syncInterval: 30000  # 30 seconds
-   ```
-3. Use faster storage
-4. For multi-instance, use shared storage with proper locking
-
-### Ban File Corruption
-
-**Symptoms**: WAF fails to start, mentions ban file
+**Cause**: High concurrency or slow storage
 
 **Solution**:
-```bash
-# Backup current file
-cp data/blocked_ips.json data/blocked_ips.json.backup
-
-# Reset ban file
-echo "[]" > data/blocked_ips.json
-
-# Restart WAF
-```
-
-## Proxy Issues
-
-### Backend Not Responding
-
-**Error**: `ECONNREFUSED` or `503 Service Unavailable`
-
-**Checklist**:
-1. Backend running?
-   ```bash
-   curl http://backend:8080/
-   ```
-2. Correct URL in config?
-   ```yaml
-   proxy:
-     host: "http://backend:8080"  # Check this
-   ```
-3. Network connectivity?
-   ```bash
-   ping backend
-   ```
-4. Firewall rules?
-
-### Timeout Errors
-
-**Error**: `504 Gateway Timeout`
-
-**Solutions**:
-1. Increase timeout:
-   ```yaml
-   proxy:
-     config:
-       proxyTimeout: 60000  # 60 seconds
-   ```
-2. Optimize backend performance
-3. Check backend logs for slow operations
-
-### WebSocket Connection Fails
-
-**Solution**: Enable WebSocket support:
 ```yaml
-proxy:
-  config:
-    ws: true
+jailManager:
+  storage:
+    driver: file
+    driverConfig:
+      filePath: './data/blocked_ips.json'
+      locker:
+        enabled: true
+        config:
+          retries: 10  # Increase retries
+  syncInterval: 10000    # Reduce sync frequency
 ```
 
 ## API Issues
 
 ### API Returns 401 Unauthorized
 
-**Causes**:
-1. Auth enabled but no credentials provided
-2. Wrong username/password
-3. Incorrect auth header format
+**Cause**: Auth not configured or wrong credentials
 
-**Solutions**:
-```bash
-# Check config
-grep -A5 "api:" config.yaml
-
-# Test with curl
-curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
-
-# Verify credentials work
-curl -v -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+**Solution**:
+```yaml
+api:
+  enabled: true
+  auth:
+    enabled: true
+    username: "admin"
+    password: "your-password"
 ```
 
-### API Not Accessible Remotely
+Test:
+```bash
+curl -u admin:your-password http://localhost:3000/waf/jail-manager/baned-users
+```
+
+### API Not Responding
 
 **Causes**:
-- Firewall blocking
-- Docker port not mapped
-- WAF bound to localhost only
+1. API not enabled
+2. Wrong port
+3. WAF not started
 
 **Solutions**:
-```bash
-# Check WAF is listening
-netstat -tulpn | grep 3000
+1. Enable API:
+   ```yaml
+   api:
+     enabled: true
+   ```
 
-# Check Docker port mapping
-docker ps  # Look for 0.0.0.0:3000->3000
+2. Check health endpoint:
+   ```bash
+   curl http://localhost:3000/waf/healthz
+   ```
 
-# Check firewall
-sudo ufw status
-sudo iptables -L | grep 3000
-```
+3. Check WAF is running:
+   ```bash
+   ps aux | grep node
+   # Or with Docker
+   docker ps | grep waf
+   ```
 
 ## Performance Issues
 
 ### High Memory Usage
 
 **Causes**:
-- Too many banned IPs
-- Large GeoIP databases (expected ~100MB)
-- Memory leaks (rare)
+1. GeoIP databases loaded in memory (~100MB)
+2. Large number of banned IPs
+3. Memory leaks
 
 **Solutions**:
-1. Clean old bans:
-   ```bash
-   # Via API
-   curl -X DELETE -u admin:pass http://localhost:3000/waf/jail-manager/baned-users \
-     -d '{"ip":"old-ip"}'
-   ```
-2. Shorter ban durations:
+1. Use header method for geolocation (if behind CDN):
    ```yaml
-   duration: 300  # 5 minutes instead of hours
+   wafMiddleware:
+     detectClientCountry:
+       method: header
+       header: "CF-IPCountry"
    ```
-3. Monitor with metrics:
-   ```promql
-   process_resident_memory_bytes{job="waf"}
+
+2. Regularly clean old bans (they auto-expire)
+
+3. Monitor for memory leaks:
+   ```bash
+   # Check memory usage
+   ps aux | grep node
+   # Or with Docker
+   docker stats waf
    ```
 
 ### High CPU Usage
 
 **Causes**:
-- Too many rules
-- Complex regex in rules
-- Very high traffic
+1. Too many regex operations in flexible rules
+2. High request rate
+3. Inefficient rules
 
 **Solutions**:
-1. Reduce debug logging:
+1. Use `equals` instead of `regexp` where possible:
    ```yaml
-   log:
-     level: warn
-   ```
-2. Optimize rules - remove unused rules
-3. Use whitelists to bypass checks for trusted IPs
-4. Scale horizontally (multiple WAF instances)
+   # Slower
+   - field: url
+     check:
+       - method: regexp
+         values: ["^/api/users$"]
 
-### Slow Response Times
-
-**Checklist**:
-1. Check backend performance (WAF adds ~1-5ms)
-2. Reduce rule complexity
-3. Use whitelist for trusted sources
-4. Monitor metrics:
-   ```promql
-   http_request_duration_seconds{job="waf"}
+   # Faster
+   - field: url
+     check:
+       - method: equals
+         values: ["/api/users"]
    ```
+
+2. Whitelist trusted IPs to skip rule evaluation
+
+3. Optimize rule order (most frequently triggered first)
 
 ## Docker Issues
 
-### Container Exits Immediately
+### Container Won't Start
 
-**Debug**:
+**Check logs**:
 ```bash
-# Check logs
 docker logs waf
-
-# Common causes:
-# - Config file not found
-# - GeoIP databases not mounted
-# - Invalid configuration
 ```
 
-### Can't Connect to Backend from Docker
+**Common causes**:
+1. Config file not mounted correctly
+2. Port conflict
+3. Missing environment variables
 
-**Solution**: Use correct network addressing
-```yaml
-# Bad (if backend is on host)
-proxy:
-  host: "http://localhost:8080"
-
-# Good
-proxy:
-  host: "http://host.docker.internal:8080"  # Mac/Windows
-  # or "http://172.17.0.1:8080"            # Linux
-```
-
-Or use Docker networking:
+**Solution**:
 ```bash
-docker network create waf-net
-docker run --network waf-net --name backend ...
-docker run --network waf-net --name waf ...
+docker run -d \
+  --name waf \
+  -p 3000:3000 \
+  -v $(pwd)/config.yaml:/app/config.yaml:ro \
+  -e GEOIP_COUNTRY_PATH=/app/geoip_data/GeoLite2-Country.mmdb \
+  -e GEOIP_CITY_PATH=/app/geoip_data/GeoLite2-City.mmdb \
+  -v $(pwd)/geoip_data:/app/geoip_data:ro \
+  waf
+```
 
-# In config:
-# proxy:
-#   host: "http://backend:8080"
+### Config Changes Not Applied
+
+**Cause**: Config file not mounted or container needs restart
+
+**Solution**:
+```bash
+# Restart container
+docker restart waf
+
+# Or rebuild with updated config
+docker stop waf
+docker rm waf
+docker run ... # with correct config mount
+```
+
+## Logging Issues
+
+### Not Enough Logs
+
+**Solution**: Application log level is configured via environment variables or application settings (not in config.yaml).
+
+With Docker:
+```bash
+docker run -e LOG_LEVEL=debug waf
+```
+
+From source:
+```bash
+export LOG_LEVEL=debug
+npm start
+```
+
+### Too Many Logs
+
+**Solution**: Reduce log verbosity:
+```bash
+export LOG_LEVEL=info
+npm start
 ```
 
 ## Getting Help
 
 If issues persist:
 
-1. **Enable debug logging**:
-   ```yaml
-   log:
-     level: debug
-   ```
+1. **Check documentation** - See [Configuration](../configuration/README.md)
+2. **Enable audit mode** - Helps debug without blocking traffic
+3. **Check logs** - Most issues show clear error messages
+4. **Review configuration** - Compare with [config.example.yaml](../../config.example.yaml)
+5. **Report issue** - [GitHub Issues](https://github.com/SomeBlackMagic/WebApplicationFirewall/issues)
 
-2. **Collect information**:
-   - WAF version
-   - Configuration (sanitized)
-   - Logs (relevant sections)
-   - Environment (OS, Node version)
-
-3. **Search existing issues**:
-   https://github.com/SomeBlackMagic/WebApplicationFirewall/issues
-
-4. **Create new issue**:
-   Use issue template and provide all collected information
-
-5. **Community discussion**:
-   https://github.com/SomeBlackMagic/WebApplicationFirewall/discussions
-
-## Related Documentation
-
-- [Configuration Overview](../configuration/README.md)
-- [Client IP Detection](../configuration/client-ip-detection.md)
-- [Filter Rules](../configuration/filter-rules.md)
-- [Deployment Guide](../deployment/docker.md)
+When reporting issues, include:
+- WAF version
+- Configuration (remove sensitive data)
+- Error messages
+- Steps to reproduce

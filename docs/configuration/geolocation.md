@@ -16,13 +16,14 @@ Geolocation enables you to:
 Geolocation detection is configured separately for country and city:
 
 ```yaml
-detectClientCountry:
-  method: geoip  # or 'header'
-  header: ""     # only used if method is 'header'
+wafMiddleware:
+  detectClientCountry:
+    method: geoip  # or 'header'
+    header: ""     # only used if method is 'header'
 
-detectClientCity:
-  method: geoip  # or 'header'
-  header: ""     # only used if method is 'header'
+  detectClientCity:
+    method: geoip  # or 'header'
+    header: ""     # only used if method is 'header'
 ```
 
 ## Detection Methods
@@ -33,15 +34,30 @@ Uses local MaxMind GeoLite2 databases to lookup location by IP.
 
 **Configuration**:
 ```yaml
-detectClientCountry:
-  method: geoip
+wafMiddleware:
+  detectClientCountry:
+    method: geoip
 
-detectClientCity:
-  method: geoip
+  detectClientCity:
+    method: geoip
+```
 
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
+**GeoIP Database Setup**:
+
+GeoIP database paths are configured via environment variables or command-line arguments:
+
+```bash
+export GEOIP_COUNTRY_PATH="./GeoLite2-Country.mmdb"
+export GEOIP_CITY_PATH="./GeoLite2-City.mmdb"
+```
+
+Or with Docker:
+```bash
+docker run \
+  -e GEOIP_COUNTRY_PATH=/app/geoip_data/GeoLite2-Country.mmdb \
+  -e GEOIP_CITY_PATH=/app/geoip_data/GeoLite2-City.mmdb \
+  -v $(pwd)/geoip_data:/app/geoip_data:ro \
+  waf
 ```
 
 **Advantages**:
@@ -61,16 +77,18 @@ Uses a value from an HTTP header set by an upstream service (e.g., CDN, proxy).
 
 **Country detection from header**:
 ```yaml
-detectClientCountry:
-  method: header
-  header: "CloudFront-Viewer-Country"  # Example: AWS CloudFront
+wafMiddleware:
+  detectClientCountry:
+    method: header
+    header: "CloudFront-Viewer-Country"  # Example: AWS CloudFront
 ```
 
 **City detection from header**:
 ```yaml
-detectClientCity:
-  method: header
-  header: "X-City-Name"
+wafMiddleware:
+  detectClientCity:
+    method: header
+    header: "X-City-Name"
 ```
 
 **Advantages**:
@@ -90,9 +108,10 @@ detectClientCity:
 Cloudflare sets geo headers automatically:
 
 ```yaml
-detectClientCountry:
-  method: header
-  header: "CF-IPCountry"
+wafMiddleware:
+  detectClientCountry:
+    method: header
+    header: "CF-IPCountry"
 ```
 
 Country codes use ISO 3166-1 alpha-2 format (e.g., `US`, `GB`, `DE`).
@@ -102,13 +121,14 @@ Country codes use ISO 3166-1 alpha-2 format (e.g., `US`, `GB`, `DE`).
 CloudFront can be configured to add geo headers:
 
 ```yaml
-detectClientCountry:
-  method: header
-  header: "CloudFront-Viewer-Country"
+wafMiddleware:
+  detectClientCountry:
+    method: header
+    header: "CloudFront-Viewer-Country"
 
-detectClientCity:
-  method: header
-  header: "CloudFront-Viewer-City"
+  detectClientCity:
+    method: header
+    header: "CloudFront-Viewer-City"
 ```
 
 **Note**: Requires enabling CloudFront geolocation headers in distribution settings.
@@ -118,13 +138,14 @@ detectClientCity:
 If your proxy sets custom headers:
 
 ```yaml
-detectClientCountry:
-  method: header
-  header: "X-Country-Code"
+wafMiddleware:
+  detectClientCountry:
+    method: header
+    header: "X-Country-Code"
 
-detectClientCity:
-  method: header
-  header: "X-City-Name"
+  detectClientCity:
+    method: header
+    header: "X-City-Name"
 ```
 
 **Nginx example**:
@@ -150,14 +171,6 @@ Download from:
 # Download from P3TERX
 wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
 wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
-```
-
-### Configuration
-
-```yaml
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
 ```
 
 ### Updating Databases
@@ -209,12 +222,15 @@ Full list: https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
 Allow traffic only from specific countries:
 
 ```yaml
-whitelist:
-  enabled: true
-  countries:
-    - "US"
-    - "GB"
-    - "DE"
+wafMiddleware:
+  whitelist:
+    ips: []
+    ipSubnet: []
+    geoCountry:
+      - "US"
+      - "GB"
+      - "DE"
+    geoCity: []
 ```
 
 ### Blacklist by Country
@@ -222,11 +238,14 @@ whitelist:
 Block traffic from specific countries:
 
 ```yaml
-blacklist:
-  enabled: true
-  countries:
-    - "CN"
-    - "RU"
+wafMiddleware:
+  blacklist:
+    ips: []
+    ipSubnet: []
+    geoCountry:
+      - "CN"
+      - "RU"
+    geoCity: []
 ```
 
 ### Flexible Rule with Country Condition
@@ -236,16 +255,17 @@ Block requests from specific countries to sensitive paths:
 ```yaml
 jailManager:
   filterRules:
-    - id: block-admin-from-foreign-countries
+    - name: block-admin-from-foreign-countries
       type: flexible
-      enabled: true
       conditions:
         - field: "url"
-          method: "contains"
-          values: ["/admin"]
+          check:
+            - method: "equals"
+              values: ["/admin"]
         - field: "country"
-          method: "notEquals"
-          values: ["US", "GB"]  # Block if NOT from US/GB
+          check:
+            - method: "equals"
+              values: ["US", "GB"]  # Allow only US/GB
 ```
 
 ### Composite Rule per Country
@@ -256,14 +276,14 @@ Different rate limits for different countries:
 jailManager:
   filterRules:
     # Strict limit for risky countries
-    - id: rate-limit-risky-countries
+    - name: rate-limit-risky-countries
       type: composite
-      enabled: true
-      keys: ["ip"]
+      uniqueClientKey: ["ip"]
       conditions:
         - field: "country"
-          method: "equals"
-          values: ["CN", "RU"]
+          check:
+            - method: "equals"
+              values: ["CN", "RU"]
       limit: 10
       period: 60
       duration: 600
@@ -275,13 +295,13 @@ jailManager:
 ```yaml
 jailManager:
   filterRules:
-    - id: block-specific-cities
+    - name: block-specific-cities
       type: flexible
-      enabled: true
       conditions:
         - field: "city"
-          method: "equals"
-          values: ["Moscow", "Beijing"]
+          check:
+            - method: "equals"
+              values: ["Moscow", "Beijing"]
 ```
 
 ## Validation
@@ -322,6 +342,7 @@ curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
 
 **Solution**:
 - Verify database files exist: `ls -lh *.mmdb`
+- Check environment variables are set correctly
 - Update databases (may be outdated)
 - For testing, use a public IP (not 127.0.0.1)
 
@@ -337,8 +358,8 @@ curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
 
 **Debug**:
 ```yaml
-log:
-  level: debug
+wafMiddleware:
+  mode: audit  # Enable audit mode for detailed logs
 ```
 
 Check logs for header values received.
@@ -374,4 +395,4 @@ For high-traffic scenarios, this is acceptable. If memory is extremely limited, 
 
 - [Static Lists](static-lists.md) - Whitelist/Blacklist by country
 - [Filter Rules](filter-rules.md) - Using geo data in rules
-- [Core Parameters](core-parameters.md) - GeoIP database paths
+- [Environment Variables](environment-variables.md) - GeoIP database configuration

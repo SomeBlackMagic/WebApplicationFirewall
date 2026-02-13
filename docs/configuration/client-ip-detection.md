@@ -9,8 +9,9 @@ When the WAF runs behind a reverse proxy (Nginx, Apache, Cloudflare, etc.), the 
 ## Configuration
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-forwarded-for"
     - "cf-connecting-ip"
     - "x-real-ip"
@@ -34,8 +35,9 @@ The WAF checks headers in the specified order and uses the first one found. If n
 Standard header used by most proxies and load balancers.
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-forwarded-for"
 ```
 
@@ -54,8 +56,9 @@ Detected IP: `203.0.113.195`
 Cloudflare-specific header containing the real client IP.
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "cf-connecting-ip"
 ```
 
@@ -66,8 +69,9 @@ detectClientIp:
 Commonly set by Nginx when proxying.
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-real-ip"
 ```
 
@@ -85,8 +89,9 @@ location / {
 Used by some CDNs (Akamai, Cloudflare Enterprise).
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "true-client-ip"
 ```
 
@@ -95,8 +100,9 @@ detectClientIp:
 The WAF checks headers in the order specified. Example:
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "cf-connecting-ip"      # Check first (Cloudflare)
     - "x-forwarded-for"       # Check second (standard)
     - "x-real-ip"             # Check third (Nginx)
@@ -114,8 +120,9 @@ detectClientIp:
 ### Behind Nginx
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-real-ip"
     - "x-forwarded-for"
 ```
@@ -123,16 +130,18 @@ detectClientIp:
 ### Behind Cloudflare
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "cf-connecting-ip"
 ```
 
 ### Behind AWS ALB/ELB
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-forwarded-for"
 ```
 
@@ -141,8 +150,9 @@ detectClientIp:
 When behind multiple proxies (e.g., Cloudflare → Nginx → WAF):
 
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "cf-connecting-ip"  # Cloudflare's header
     - "x-forwarded-for"   # Fallback
 ```
@@ -153,8 +163,9 @@ If the WAF receives connections directly from clients:
 
 ```yaml
 # Can omit this section entirely, or use:
-detectClientIp:
-  headers: []
+wafMiddleware:
+  detectClientIp:
+    headers: []
 ```
 
 The WAF will use `req.ip` directly.
@@ -213,16 +224,18 @@ If using Cloudflare but checking `x-forwarded-for` first, clients can spoof:
 
 **Bad**:
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "x-forwarded-for"  # Can be spoofed
     - "cf-connecting-ip" # Never checked
 ```
 
 **Good**:
 ```yaml
-detectClientIp:
-  headers:
+wafMiddleware:
+  detectClientIp:
+    headers:
     - "cf-connecting-ip" # Checked first, set by Cloudflare
     - "x-forwarded-for"  # Fallback only
 ```
@@ -236,15 +249,13 @@ detectClientIp:
 **Cause**: IP detection not configured correctly.
 
 **Solution**:
-1. Check what headers your proxy sets:
-   ```bash
-   # Enable debug logging
-   mode: audit
-   log:
-     level: debug
+1. Enable audit mode to see debug information:
+   ```yaml
+   wafMiddleware:
+     mode: audit
    ```
-2. Look for logged headers in the output
-3. Configure `detectClientIp.headers` accordingly
+2. Check what headers your proxy sets by reviewing the logs
+3. Configure `wafMiddleware.detectClientIp.headers` accordingly
 
 ### All requests show same IP
 

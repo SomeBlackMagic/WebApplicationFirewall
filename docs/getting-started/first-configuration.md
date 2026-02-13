@@ -11,28 +11,19 @@ The project includes `config.example.yaml` which demonstrates all available opti
 Here's the absolute minimum required configuration:
 
 ```yaml
-mode: audit
-port: 3000
-
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
-
-log:
-  level: 'info'
-  transport: 'console'
-
 proxy:
   enabled: true
   host: "http://localhost:8080"
+
+wafMiddleware:
+  mode: audit
 ```
 
 This configuration:
 - Runs in `audit` mode (logs only, no blocking)
-- Listens on port 3000
-- Uses local GeoIP databases
-- Logs to console at INFO level
 - Proxies requests to `localhost:8080`
+
+**Note**: Port, logging, and GeoIP database paths are configured via environment variables or command-line arguments, not in the YAML configuration file.
 
 ## Step-by-Step Configuration
 
@@ -41,52 +32,27 @@ This configuration:
 Start by defining basic operational parameters:
 
 ```yaml
-# Operating mode: 'audit' for testing, 'normal' for production
-mode: audit
-
-# Port to listen on
-port: 3000
+wafMiddleware:
+  mode: audit  # 'audit' for testing, 'normal' for production
 ```
 
 **Recommendation**: Always start with `audit` mode to test your rules before enforcing them.
 
-### 2. Logging
-
-Configure how the WAF logs information:
-
-```yaml
-log:
-  level: 'info'  # Options: trace, debug, info, warn, error, fatal
-  transport: 'console'
-  transportConfig: {}
-```
-
-### 3. GeoIP Databases
-
-Specify paths to MaxMind GeoLite2 databases:
-
-```yaml
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
-```
-
-**Important**: These files must exist at the specified paths. Download them as described in the [Installation Guide](installation.md).
-
-### 4. Client IP Detection
+### 2. Client IP Detection
 
 Configure how to detect the real client IP (important if behind a proxy):
 
 ```yaml
-detectClientIp:
-  headers:
-    - "x-forwarded-for"
-    - "cf-connecting-ip"  # Add if using Cloudflare
+wafMiddleware:
+  detectClientIp:
+    headers:
+      - "x-forwarded-for"
+      - "cf-connecting-ip"  # Add if using Cloudflare
 ```
 
-The WAF checks headers in order. If not found, it falls back to `req.ip`.
+The WAF checks headers in order. If not found, it falls back to the connection IP.
 
-### 5. Proxy Configuration
+### 3. Proxy Configuration
 
 Set up reverse proxy to your backend:
 
@@ -99,7 +65,7 @@ proxy:
 
 Replace `http://your-backend:8080` with your actual backend URL.
 
-### 6. Jail System (Optional but Recommended)
+### 4. Jail System (Optional but Recommended)
 
 Configure IP banning:
 
@@ -129,7 +95,7 @@ jailManager:
   filterRules: []
 ```
 
-### 7. Add Your First Rule
+### 5. Add Your First Rule
 
 Let's add a simple rate limiting rule:
 
@@ -140,10 +106,9 @@ jailManager:
     driver: memory
   filterRules:
     # Limit requests from any IP
-    - id: global-rate-limit
+    - name: global-rate-limit
       type: composite
-      enabled: true
-      keys: ["ip"]
+      uniqueClientKey: ["ip"]
       conditions: []  # Applies to all requests
       limit: 1000
       period: 60  # 1000 requests per 60 seconds
@@ -156,21 +121,22 @@ This rule:
 - Bans offenders for 5 minutes
 - Increases ban time by 1.5x for repeat offenders
 
-### 8. Whitelist (Optional)
+### 6. Whitelist (Optional)
 
 Allow trusted IPs to bypass all checks:
 
 ```yaml
-whitelist:
-  enabled: true
-  ips:
-    - "192.168.1.0/24"  # Local network
-    - "10.0.0.1"        # Specific IP
-  countries: []  # e.g., ["US", "GB"]
-  cities: []
+wafMiddleware:
+  whitelist:
+    ips:
+      - "10.0.0.1"        # Specific IP
+    ipSubnet:
+      - "192.168.1.0/24"  # Local network
+    geoCountry: []  # e.g., ["US", "GB"]
+    geoCity: []
 ```
 
-### 9. API Configuration (Optional)
+### 7. API Configuration (Optional)
 
 Enable the management API:
 
@@ -185,7 +151,7 @@ api:
 
 **Security**: Always enable auth and use a strong password!
 
-### 10. Metrics (Optional)
+### 8. Metrics (Optional)
 
 Enable Prometheus metrics:
 
@@ -200,36 +166,12 @@ metrics:
 Putting it all together:
 
 ```yaml
-# Core settings
-mode: audit
-port: 3000
-
-# Client IP detection
-detectClientIp:
-  headers:
-    - "x-forwarded-for"
-
-# GeoIP
-geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
-
-# Proxy
+# Proxy to backend
 proxy:
   enabled: true
   host: "http://localhost:8080"
 
-# Logging
-log:
-  level: 'info'
-  transport: 'console'
-
-# Metrics
-metrics:
-  enabled: true
-  path: '/metrics'
-
-# API
+# API for management
 api:
   enabled: true
   auth:
@@ -237,24 +179,39 @@ api:
     username: "admin"
     password: "secure-password-here"
 
-# Whitelist
-whitelist:
+# Prometheus metrics
+metrics:
   enabled: true
-  ips:
-    - "127.0.0.1"
-    - "192.168.1.0/24"
+  path: '/metrics'
 
-# Jail system
+# WAF middleware configuration
+wafMiddleware:
+  mode: audit
+
+  # Client IP detection
+  detectClientIp:
+    headers:
+      - "x-forwarded-for"
+
+  # Whitelist trusted sources
+  whitelist:
+    ips:
+      - "127.0.0.1"
+    ipSubnet:
+      - "192.168.1.0/24"
+    geoCountry: []
+    geoCity: []
+
+# Jail system and filter rules
 jailManager:
   enabled: true
   storage:
     driver: memory
   filterRules:
     # Global rate limit
-    - id: global-rate-limit
+    - name: global-rate-limit
       type: composite
-      enabled: true
-      keys: ["ip"]
+      uniqueClientKey: ["ip"]
       conditions: []
       limit: 1000
       period: 60
@@ -266,6 +223,10 @@ jailManager:
 
 1. **Start the WAF**:
    ```bash
+   # Using Docker
+   docker run -v $(pwd)/config.yaml:/app/config.yaml waf
+
+   # Or from source
    npm start
    ```
 
@@ -290,6 +251,16 @@ jailManager:
    curl -u admin:secure-password-here http://localhost:3000/waf/jail-manager/baned-users
    ```
 
+## Environment Variables and Command-Line Arguments
+
+Some settings are configured outside the YAML file:
+
+- **Port**: Set via `PORT` environment variable or `--port` flag (default: 3000)
+- **GeoIP databases**: Set via `GEOIP_COUNTRY_PATH` and `GEOIP_CITY_PATH` environment variables
+- **Log level**: Configure via application settings or environment variables
+
+See [Environment Variables](../configuration/environment-variables.md) for full list.
+
 ## Next Steps
 
 Now that you have a working configuration:
@@ -301,10 +272,9 @@ Now that you have a working configuration:
 
 ## Common Mistakes
 
-1. **Forgetting to download GeoIP databases** - WAF will fail to start
-2. **Wrong backend URL** - Requests won't be proxied correctly
-3. **Starting in normal mode** - Test in audit mode first!
-4. **Weak API passwords** - Always use strong, unique passwords
-5. **Not configuring IP detection** - May ban wrong IPs if behind a proxy
+1. **Wrong backend URL** - Requests won't be proxied correctly
+2. **Starting in normal mode** - Test in audit mode first!
+3. **Weak API passwords** - Always use strong, unique passwords
+4. **Not configuring IP detection** - May ban wrong IPs if behind a proxy
 
 For more help, see the [Troubleshooting Guide](../guides/troubleshooting.md).

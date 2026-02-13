@@ -128,13 +128,11 @@ Array of filter rules that define when and how IPs get banned. See [Filter Rules
 ```yaml
 jailManager:
   filterRules:
-    - id: rule-1
+    - name: rule-1
       type: composite
-      enabled: true
       # ... rule configuration
-    - id: rule-2
+    - name: rule-2
       type: flexible
-      enabled: true
       # ... rule configuration
 ```
 
