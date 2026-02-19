@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waf-go
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: waf-go
+  template:
+    metadata:
+      labels:
+        app: waf-go
+    spec:
+      containers:
+        - name: waf-go
+          image: waf-go:latest
+          ports:
+            - containerPort: 3000
