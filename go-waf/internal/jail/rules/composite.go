@@ -49,7 +49,7 @@ func (r *CompositeRule) Use(clientIP, country, city string, req *http.Request, r
 		case "hostname":
 			keyParts[i] = req.Host
 		case "url":
-			keyParts[i] = req.URL.Path
+			keyParts[i] = req.URL.RequestURI()
 		case "geo-country":
 			keyParts[i] = country
 		case "geo-city":

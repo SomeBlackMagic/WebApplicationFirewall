@@ -54,7 +54,7 @@ func Run() {
 	store := createStorage(cfg.JailManager.Storage, logger)
 
 	// 7. JailManager
-	jailMgr := jail.NewManager(cfg.JailManager, store, logger)
+	jailMgr := jail.NewManager(cfg.JailManager, store, metricsReg.Prometheus(), logger)
 	if err := jailMgr.Bootstrap(); err != nil {
 		logger.Fatal("Failed to bootstrap JailManager", "error", err)
 	}

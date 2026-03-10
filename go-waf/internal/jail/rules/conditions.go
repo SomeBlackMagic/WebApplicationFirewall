@@ -13,7 +13,7 @@ func CheckConditions(conditions []config.ConditionConfig, r *http.Request, count
 
 		switch {
 		case cond.Field == "url":
-			testedValue = r.URL.Path
+			testedValue = r.URL.RequestURI()
 		case cond.Field == "hostname":
 			testedValue = r.Host
 		case cond.Field == "user-agent":

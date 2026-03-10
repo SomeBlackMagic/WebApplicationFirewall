@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/someblackmagic/web-application-firewall-go/internal/config"
 	"github.com/someblackmagic/web-application-firewall-go/internal/jail/rules"
 	"github.com/someblackmagic/web-application-firewall-go/internal/jail/storage"
@@ -25,9 +26,14 @@ type Manager struct {
 	rules         []rules.Rule
 	logger        *logging.Logger
 	stopCh        chan struct{}
+	reg           *prometheus.Registry
+
+	metricBlocked   *prometheus.CounterVec
+	metricStatic    *prometheus.CounterVec
+	metricBanByRule *prometheus.CounterVec
 }
 
-func NewManager(cfg config.JailManagerConfig, store storage.Storage, logger *logging.Logger) *Manager {
+func NewManager(cfg config.JailManagerConfig, store storage.Storage, reg *prometheus.Registry, logger *logging.Logger) *Manager {
 	return &Manager{
 		cfg:           cfg,
 		storage:       store,
@@ -35,6 +41,7 @@ func NewManager(cfg config.JailManagerConfig, store storage.Storage, logger *log
 		blockedAdded:  make(map[string]*storage.BanInfo),
 		logger:        logger.WithCategory("app.Jail.JailManager"),
 		stopCh:        make(chan struct{}),
+		reg:           reg,
 	}
 }
 
@@ -43,6 +50,7 @@ func (m *Manager) Bootstrap() error {
 		return nil
 	}
 	m.logger.Info("JailManager bootstrap")
+	m.bootstrapMetrics()
 	if err := m.loadRules(); err != nil {
 		return err
 	}
@@ -74,26 +82,52 @@ func (m *Manager) Check(clientIP, country, city string, r *http.Request, request
 	m.mu.RUnlock()
 
 	if blocked != nil && blocked.UnbanTime > time.Now().UnixMilli() {
+		if m.metricBlocked != nil {
+			m.metricBlocked.WithLabelValues(country, city).Inc()
+		}
 		return true
 	}
 
-	for _, rule := range m.rules {
-		result := rule.Use(clientIP, country, city, r, requestID)
-		if result.Blocked && result.Ban == nil {
-			return true
-		}
-		if result.Ban != nil {
-			m.BlockIP(result.Ban.IP, result.Ban.Duration, result.Ban.EscalationRate, map[string]string{
-				"ruleId":     result.Ban.RuleID,
-				"country":    country,
-				"city":       city,
-				"requestIds": strings.Join(result.Ban.RequestIDs, ","),
-			})
+	// Run all rules in parallel (matching TS Promise.all behavior)
+	results := make([]rules.RuleResult, len(m.rules))
+	var wg sync.WaitGroup
+	for i, rule := range m.rules {
+		wg.Add(1)
+		go func(idx int, rl rules.Rule) {
+			defer wg.Done()
+			results[idx] = rl.Use(clientIP, country, city, r, requestID)
+		}(i, rule)
+	}
+	wg.Wait()
+
+	// Check for static blocks (Blocked=true, Ban=nil) — like TS result.some(x => x === true)
+	for _, res := range results {
+		if res.Blocked && res.Ban == nil {
+			if m.metricStatic != nil {
+				m.metricStatic.WithLabelValues(country, city).Inc()
+			}
 			return true
 		}
 	}
 
-	return false
+	// Process all ban results — like TS jailObjects.filter(x => typeof x === 'object')
+	hasBan := false
+	for _, res := range results {
+		if res.Ban != nil {
+			m.BlockIP(res.Ban.IP, res.Ban.Duration, res.Ban.EscalationRate, map[string]string{
+				"ruleId":     res.Ban.RuleID,
+				"country":    country,
+				"city":       city,
+				"requestIds": strings.Join(res.Ban.RequestIDs, ","),
+			})
+			if m.metricBanByRule != nil {
+				m.metricBanByRule.WithLabelValues(country, city, res.Ban.RuleID).Inc()
+			}
+			hasBan = true
+		}
+	}
+
+	return hasBan
 }
 
 func (m *Manager) BlockIP(ip string, duration int, escalationRate float64, metadata map[string]string) {
@@ -167,6 +201,29 @@ func (m *Manager) getBlockedIPLocked(ip string) *storage.BanInfo {
 		return bi
 	}
 	return nil
+}
+
+func (m *Manager) bootstrapMetrics() {
+	if m.reg == nil {
+		return
+	}
+
+	m.metricBlocked = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "waf_jail_reject_blocked",
+		Help: "Count of users who rejected because he blocked",
+	}, []string{"country", "city"})
+
+	m.metricStatic = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "waf_jail_reject_static",
+		Help: "Count of users who rejected by static ip blocked",
+	}, []string{"country", "city"})
+
+	m.metricBanByRule = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "waf_jail_reject_by_rule",
+		Help: "Count of users who rejected and banned because of rule",
+	}, []string{"country", "city", "ruleId"})
+
+	m.reg.MustRegister(m.metricBlocked, m.metricStatic, m.metricBanByRule)
 }
 
 func (m *Manager) loadRules() error {

@@ -36,7 +36,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 blocked_ips.json
 config.yaml
 *.mmdb
-waf
+/waf
 test/**/*.test.js
 test/**/*.test.js.map
 
