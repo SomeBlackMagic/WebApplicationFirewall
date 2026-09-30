@@ -35,7 +35,7 @@
     ],
     "preserveWatchOutput": true,
     "pretty": true,
-    "sourceMap": true,
+    "sourceMap": false,
     "strict": false,
     "strictBindCallApply": false,
     "target": "ES6",
@@ -43,7 +43,8 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true
   },
   "ts-node": {
     "require": ["tsconfig-paths/register"],
