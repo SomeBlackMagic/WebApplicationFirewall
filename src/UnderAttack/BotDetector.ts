@@ -1,9 +1,9 @@
-import {Request} from 'express';
-import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
-import {Log} from '@waf/Log';
-import {merge} from "lodash";
-import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
-import {IBrowserFingerprint} from "@waf/UnderAttack/FingerprintValidator";
+import { Request } from "express";
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { Log } from "@waf/Log";
+import { merge } from "lodash";
+import { UnderAttackMetrics } from "@waf/UnderAttack/UnderAttackMetrics";
+import { IBrowserFingerprint } from "@waf/UnderAttack/FingerprintValidator";
 
 /**
  * Interface for storing a request pattern
@@ -22,15 +22,14 @@ interface RequestPattern {
  */
 export interface IBotDetectorConfig {
     enabled: boolean;
-    mode?: 'strict' | 'audit'; // Mode of operation
-    aiModel: 'basic' | 'advanced';
+    mode?: "strict" | "audit"; // Mode of operation
+    aiModel: "basic" | "advanced";
     blockSuspiciousUA: boolean;
     historyCleanup?: {
         enabled?: boolean;
         time?: number;
     };
 }
-
 
 export class BotDetector {
     private knownBotPatterns: RegExp[];
@@ -44,32 +43,62 @@ export class BotDetector {
         private readonly metrics?: UnderAttackMetrics,
         private readonly log?: LoggerInterface,
     ) {
-        this.config = merge<object|IBotDetectorConfig, IBotDetectorConfig>({
-            enabled: false,
-            mode: 'strict',
-            historyCleanup: {
-                enabled: true,
-                time: 10
-            }
-        }, config);
+        this.config = merge<object | IBotDetectorConfig, IBotDetectorConfig>(
+            {
+                enabled: false,
+                mode: "strict",
+                historyCleanup: {
+                    enabled: true,
+                    time: 10,
+                },
+            },
+            config,
+        );
 
-        if(!log) {
-            this.log = Log.instance.withCategory('app.UnderAttack.BotDetector');
+        if (!log) {
+            this.log = Log.instance.withCategory("app.UnderAttack.BotDetector");
         }
 
-        if(!metrics) {
+        if (!metrics) {
             this.metrics = UnderAttackMetrics.get();
         }
 
-
         // Extended attack bot patterns
         this.knownBotPatterns = [
-            /bot/i, /crawl/i, /spider/i, /headless/i, /scraper/i, /http[\s-]?request/i,
-            /wget/i, /curl/i, /selenium/i, /puppeteer/i, /playwright/i, /chrome-lighthouse/i,
-            /phantom/i, /httrack/i, /python-requests/i, /go-http-client/i, /java\/\d/i,
-            /postman/i, /insomnia/i, /httpclient/i, /okhttp/i, /axios/i, /fetch/i,
-            /masscan/i, /nmap/i, /sqlmap/i, /nikto/i, /dirb/i, /gobuster/i,
-            /nuclei/i, /ffuf/i, /wfuzz/i, /burp/i, /zap/i
+            /bot/i,
+            /crawl/i,
+            /spider/i,
+            /headless/i,
+            /scraper/i,
+            /http[\s-]?request/i,
+            /wget/i,
+            /curl/i,
+            /selenium/i,
+            /puppeteer/i,
+            /playwright/i,
+            /chrome-lighthouse/i,
+            /phantom/i,
+            /httrack/i,
+            /python-requests/i,
+            /go-http-client/i,
+            /java\/\d/i,
+            /postman/i,
+            /insomnia/i,
+            /httpclient/i,
+            /okhttp/i,
+            /axios/i,
+            /fetch/i,
+            /masscan/i,
+            /nmap/i,
+            /sqlmap/i,
+            /nikto/i,
+            /dirb/i,
+            /gobuster/i,
+            /nuclei/i,
+            /ffuf/i,
+            /wfuzz/i,
+            /burp/i,
+            /zap/i,
         ];
 
         // Suspicious User-Agent patterns
@@ -78,13 +107,22 @@ export class BotDetector {
             /^\s*$/i, // Empty UA
             /^(Mozilla|Chrome|Safari|Firefox|Opera)$/i, // Only browser name
             /\(compatible\)$/i, // Incomplete UA
-            /fake/i, /anonym/i, /incognito/i, /unknown/i, /generic/i,
-            /test/i, /scanner/i, /exploit/i
+            /fake/i,
+            /anonym/i,
+            /incognito/i,
+            /unknown/i,
+            /generic/i,
+            /test/i,
+            /scanner/i,
+            /exploit/i,
         ];
 
-        if(this.config.enabled && this.config.historyCleanup.enabled) {
-            this.historyCleanupInterval = setInterval(() => this.cleanupHistory(), this.config.historyCleanup.time * 60 * 1000);
-            process.on('exit', () => clearInterval(this.historyCleanupInterval));
+        if (this.config.enabled && this.config.historyCleanup.enabled) {
+            this.historyCleanupInterval = setInterval(
+                () => this.cleanupHistory(),
+                this.config.historyCleanup.time * 60 * 1000,
+            );
+            process.on("exit", () => clearInterval(this.historyCleanupInterval));
         }
     }
 
@@ -103,80 +141,83 @@ export class BotDetector {
         // Increment bot detection counter
         this.metrics.incrementBotDetectionTotal();
 
-        const userAgent = req.header('user-agent') || '';
+        const userAgent = req.header("user-agent") || "";
 
         // Record request in history
         this.recordRequest(req, clientIp);
 
         // 1. Check User-Agent for known bots
         if (this.isKnownBot(userAgent)) {
-            this.log.warn('Detected known attack bot', {ip: clientIp, userAgent});
+            this.log.warn("Detected known attack bot", { ip: clientIp, userAgent });
             this.metrics.incrementKnownBotDetection();
-            if(this.config.mode === 'strict') {
+            if (this.config.mode === "strict") {
                 return true;
             } else {
-                this.log.debug('Bot detection in audit mode, allowing request', {ip: clientIp, userAgent});
+                this.log.debug("Bot detection in audit mode, allowing request", { ip: clientIp, userAgent });
             }
         }
 
         // 2. Check behavioral patterns
         if (this.detectSuspiciousPatterns(clientIp)) {
-            this.log.warn('Detected suspicious request patterns', {ip: clientIp});
+            this.log.warn("Detected suspicious request patterns", { ip: clientIp });
             this.metrics.incrementSuspiciousPatternsDetection();
-            if(this.config.mode === 'strict') {
+            if (this.config.mode === "strict") {
                 return true;
             } else {
-                this.log.debug('Suspicious patterns detection in audit mode, allowing request', {ip: clientIp});
+                this.log.debug("Suspicious patterns detection in audit mode, allowing request", { ip: clientIp });
             }
         }
 
         // 3. Check headers for automation signs
         if (this.checkAutomationHeaders(req)) {
-            this.log.warn('Detected automation headers', {ip: clientIp});
+            this.log.warn("Detected automation headers", { ip: clientIp });
             this.metrics.incrementAutomationHeadersDetection();
-            if(this.config.mode === 'strict') {
+            if (this.config.mode === "strict") {
                 return true;
             } else {
-                this.log.debug('Automation headers detection in audit mode, allowing request', {ip: clientIp});
+                this.log.debug("Automation headers detection in audit mode, allowing request", { ip: clientIp });
             }
         }
 
         // 4. Check challenge execution time (if any)
         if (this.checkChallengeTimingAnomaly(clientIp)) {
-            this.log.warn('Detected challenge timing anomaly', {ip: clientIp});
+            this.log.warn("Detected challenge timing anomaly", { ip: clientIp });
             this.metrics.incrementTimingAnomalyDetection();
-            if(this.config.mode === 'strict') {
+            if (this.config.mode === "strict") {
                 return true;
             } else {
-                this.log.debug('Challenge timing anomaly detection in audit mode, allowing request', {ip: clientIp});
+                this.log.debug("Challenge timing anomaly detection in audit mode, allowing request", { ip: clientIp });
             }
         }
 
         // 5. Check based on JavaScript data from browser
         if (data !== null && this.checkClientData(data)) {
-            this.log.debug('Detected bot from client data', {data});
+            this.log.debug("Detected bot from client data", { data });
             this.metrics.incrementClientDataDetection();
-            if(this.config.mode === 'strict') {
+            if (this.config.mode === "strict") {
                 return true;
             } else {
-                this.log.debug('Client data detection in audit mode, allowing request', {ip: clientIp});
+                this.log.debug("Client data detection in audit mode, allowing request", { ip: clientIp });
             }
         }
 
         // 6. Advanced heuristics
-        if (this.config.aiModel === 'advanced') {
+        if (this.config.aiModel === "advanced") {
             const suspicionScore = this.calculateSuspicionScore(req, clientIp, data);
 
             // Record suspicion score
             this.metrics.recordSuspicionScore(suspicionScore);
 
             if (suspicionScore > 0.8) {
-                this.log.warn('High suspicion score detected', {ip: clientIp, score: suspicionScore});
+                this.log.warn("High suspicion score detected", { ip: clientIp, score: suspicionScore });
                 this.metrics.incrementHighSuspicionDetection();
-                if(this.config.mode === 'strict') {
+                if (this.config.mode === "strict") {
                     return true;
                 } else {
-                    this.log.debug('High suspicion score detection in audit mode, allowing request', {ip: clientIp, score: suspicionScore});
+                    this.log.debug("High suspicion score detection in audit mode, allowing request", {
+                        ip: clientIp,
+                        score: suspicionScore,
+                    });
                 }
             }
         }
@@ -192,9 +233,10 @@ export class BotDetector {
     }
 
     private isKnownBot(userAgent: string): boolean {
-        return this.knownBotPatterns.some(pattern => pattern.test(userAgent)) ||
-            (this.config.blockSuspiciousUA &&
-                this.suspiciousUAPatterns.some(pattern => pattern.test(userAgent)));
+        return (
+            this.knownBotPatterns.some(pattern => pattern.test(userAgent)) ||
+            (this.config.blockSuspiciousUA && this.suspiciousUAPatterns.some(pattern => pattern.test(userAgent)))
+        );
     }
 
     private detectSuspiciousPatterns(clientIP: string): boolean {
@@ -239,8 +281,8 @@ export class BotDetector {
 
         // Check if intervals are too regular
         const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-        const variance = intervals.reduce((sum, interval) =>
-            sum + Math.pow(interval - avgInterval, 2), 0) / intervals.length;
+        const variance =
+            intervals.reduce((sum, interval) => sum + Math.pow(interval - avgInterval, 2), 0) / intervals.length;
 
         // If the variance is too small, it's suspicious
         return variance < avgInterval * 0.1 && avgInterval < 5000; // Less than 5 seconds with low variance
@@ -285,34 +327,37 @@ export class BotDetector {
         if (requests.length < 3) return false;
 
         const firstHeaders = requests[0].headers;
-        const keyHeaders = ['accept', 'accept-language', 'accept-encoding', 'user-agent'];
+        const keyHeaders = ["accept", "accept-language", "accept-encoding", "user-agent"];
 
-        return requests.slice(1).every(req =>
-            keyHeaders.every(header => req.headers[header] === firstHeaders[header])
-        );
+        return requests.slice(1).every(req => keyHeaders.every(header => req.headers[header] === firstHeaders[header]));
     }
 
     private checkAutomationHeaders(req: Request): boolean {
         const headers = req.headers;
 
         // Absence of important browser headers
-        if (!headers.accept || !headers['accept-language'] || !headers['accept-encoding']) {
+        if (!headers.accept || !headers["accept-language"] || !headers["accept-encoding"]) {
             return true;
         }
 
         // Suspicious header values
-        if (headers.accept === '*/*' && !headers.referer) {
+        if (headers.accept === "*/*" && !headers.referer) {
             return true;
         }
 
         // Presence of automation headers
         const automationHeaders = [
-            'x-requested-with', 'x-automation', 'x-test', 'x-bot',
-            'selenium', 'webdriver', 'puppeteer', 'playwright'
+            "x-requested-with",
+            "x-automation",
+            "x-test",
+            "x-bot",
+            "selenium",
+            "webdriver",
+            "puppeteer",
+            "playwright",
         ];
 
-        if (automationHeaders.some(header =>
-            Object.keys(headers).some(h => h.toLowerCase().includes(header)))) {
+        if (automationHeaders.some(header => Object.keys(headers).some(h => h.toLowerCase().includes(header)))) {
             return true;
         }
 
@@ -329,20 +374,18 @@ export class BotDetector {
         const hasExtensions = data.extensions && Array.isArray(data.extensions) && data.extensions.length > 0;
 
         // Less strict check - it is suspicious only if there is nothing at all
-        const suspiciouslyEmpty = !hasPlugins && !hasExtensions &&
-            (!data.fonts || data.fonts.length === 0);
+        const suspiciouslyEmpty = !hasPlugins && !hasExtensions && (!data.fonts || data.fonts.length === 0);
 
         // Check on Headless browser with the right field
-        const isHeadless = data.webdriver ||
-            (data.webglVendor && (
-                data.webglVendor.includes('SwiftShader') ||
-                data.webglVendor.includes('Mesa') ||
-                data.webglVendor === 'Google Inc.'
-            ));
+        const isHeadless =
+            data.webdriver ||
+            (data.webglVendor &&
+                (data.webglVendor.includes("SwiftShader") ||
+                    data.webglVendor.includes("Mesa") ||
+                    data.webglVendor === "Google Inc."));
 
         return suspiciouslyEmpty || isHeadless;
     }
-
 
     private checkChallengeTimingAnomaly(clientIP: string): boolean {
         const challengeStart = this.challengeTimings.get(clientIP);
@@ -363,7 +406,7 @@ export class BotDetector {
     private calculateSuspicionScore(req: Request, clientIP: string, data: IBrowserFingerprint | null): number {
         let score = 0;
         const history = this.requestHistory.get(clientIP) || [];
-        const userAgent = req.header('user-agent') || '';
+        const userAgent = req.header("user-agent") || "";
 
         // Request frequency analysis
         const recentRequests = history.filter(r => Date.now() - r.timestamp < 60000);
@@ -375,11 +418,11 @@ export class BotDetector {
         if (!/Chrome|Firefox|Safari|Edge/.test(userAgent)) score += 0.15;
 
         // Headers analysis
-        if (!req.header('referer') && !req.header('origin')) score += 0.1;
-        if (req.header('accept') === '*/*') score += 0.15;
+        if (!req.header("referer") && !req.header("origin")) score += 0.1;
+        if (req.header("accept") === "*/*") score += 0.15;
 
         // Request paths analysis
-        const suspiciousPaths = ['.php', '.asp', '.jsp', 'admin', 'login', '.env'];
+        const suspiciousPaths = [".php", ".asp", ".jsp", "admin", "login", ".env"];
         if (suspiciousPaths.some(path => req.path.includes(path))) score += 0.1;
 
         // If client data is missing or suspicious
@@ -402,16 +445,16 @@ export class BotDetector {
     private recordRequest(req: Request, clientIP: string): void {
         const pattern: RequestPattern = {
             ip: clientIP,
-            userAgent: req.header('user-agent') || '',
+            userAgent: req.header("user-agent") || "",
             timestamp: Date.now(),
             url: req.path,
             headers: {
-                accept: req.header('accept') || '',
-                'accept-language': req.header('accept-language') || '',
-                'accept-encoding': req.header('accept-encoding') || '',
-                referer: req.header('referer') || '',
-                origin: req.header('origin') || ''
-            }
+                accept: req.header("accept") || "",
+                "accept-language": req.header("accept-language") || "",
+                "accept-encoding": req.header("accept-encoding") || "",
+                referer: req.header("referer") || "",
+                origin: req.header("origin") || "",
+            },
         };
 
         if (!this.requestHistory.has(clientIP)) {
@@ -428,7 +471,7 @@ export class BotDetector {
     }
 
     private cleanupHistory(): void {
-        this.log.debug('Cleaning up request history');
+        this.log.debug("Cleaning up request history");
         const oneHourAgo = Date.now() - 3600000;
 
         for (const [ip, history] of this.requestHistory.entries()) {
@@ -442,7 +485,8 @@ export class BotDetector {
 
         // Cleanup challenge timings
         for (const [ip, timestamp] of this.challengeTimings.entries()) {
-            if (Date.now() - timestamp > 300000) { // 5 minutes
+            if (Date.now() - timestamp > 300000) {
+                // 5 minutes
                 this.challengeTimings.delete(ip);
             }
         }

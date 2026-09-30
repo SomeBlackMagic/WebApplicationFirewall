@@ -1,10 +1,9 @@
 import * as SentryLib from "@sentry/node";
 import * as os from "node:os";
-import {Singleton} from "@waf/Utils/Singleton";
-import {EventHint, Scope} from "@sentry/node";
+import { Singleton } from "@waf/Utils/Singleton";
+import { EventHint, Scope } from "@sentry/node";
 
 export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
-
     private readonly sentryInstance: SentryLib.NodeClient;
 
     public constructor(
@@ -12,9 +11,12 @@ export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
         appVersion: string,
     ) {
         super();
-        this.config = Object.assign({
-            enabled: false,
-        }, config);
+        this.config = Object.assign(
+            {
+                enabled: false,
+            },
+            config,
+        );
 
         if (this.config?.enabled) {
             this.sentryInstance = SentryLib.init({
@@ -34,11 +36,10 @@ export class Sentry extends Singleton<Sentry, [ISentryConfig, string]> {
 
     public captureException(exception: unknown, hint?: EventHint, scope?: Scope): string {
         const eventId: string = this.sentryInstance?.captureException(exception, hint, scope);
-        if(this.config.debug) {
+        if (this.config.debug) {
             console.log(`Sentry Logger [debug]: Sentry eventId: ${eventId}`);
         }
         return eventId;
-
     }
 }
 

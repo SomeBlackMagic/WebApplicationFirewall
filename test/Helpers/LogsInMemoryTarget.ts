@@ -1,5 +1,5 @@
-import {AbstractTarget} from "@elementary-lab/logger/src";
-import {TargetConfigInterface} from "@elementary-lab/logger/src/Interface/LoggerConfigInterface";
+import { AbstractTarget } from "@elementary-lab/logger/src";
+import { TargetConfigInterface } from "@elementary-lab/logger/src/Interface/LoggerConfigInterface";
 
 export class LogsInMemoryTarget extends AbstractTarget {
     public constructor(config: TargetConfigInterface) {
@@ -14,5 +14,4 @@ export class LogsInMemoryTarget extends AbstractTarget {
     public getMessages() {
         return this.messages;
     }
-
 }

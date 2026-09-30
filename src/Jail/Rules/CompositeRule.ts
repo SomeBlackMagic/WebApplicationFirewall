@@ -1,55 +1,58 @@
-import {Request} from "express-serve-static-core";
-import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {IBannedIPItem} from "@waf/WAFMiddleware";
-import {Log} from "@waf/Log";
-import {ConditionsRule, IConditionsRule, ICountersItem} from "@waf/Jail/Rules/ConditionsRule";
-import {IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
-
+import { Request } from "express-serve-static-core";
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { IBannedIPItem } from "@waf/WAFMiddleware";
+import { Log } from "@waf/Log";
+import { ConditionsRule, IConditionsRule, ICountersItem } from "@waf/Jail/Rules/ConditionsRule";
+import { IAbstractRuleConfig } from "@waf/Jail/Rules/AbstractRule";
 
 export class CompositeRule extends ConditionsRule {
-
     // public static GARBAGE_TIME_PERIOD: number = 60 * 1000;
-    public static ID: string = 'composite';
+    public static ID: string = "composite";
 
     public constructor(
         private rule: ICompositeRuleConfig,
-        private log?: LoggerInterface
+        private log?: LoggerInterface,
     ) {
         super();
         if (!log) {
-            this.log = Log.instance.withCategory('app.Jail.Rules.CompositeRule');
+            this.log = Log.instance.withCategory("app.Jail.Rules.CompositeRule");
         }
     }
 
     private compositeCounters: Record<string, ICountersItem[]> = {};
 
-    public async use(clientIp: string, country:string, city:string, req: Request, requestId: string): Promise<boolean|IBannedIPItem> {
-
+    public async use(
+        clientIp: string,
+        country: string,
+        city: string,
+        req: Request,
+        requestId: string,
+    ): Promise<boolean | IBannedIPItem> {
         const ruleTester: boolean = this.checkConditions(this.rule.conditions, req, country, city);
 
-        if(!ruleTester) {
+        if (!ruleTester) {
             return Promise.resolve(false);
         }
 
         const keyParts = this.rule.uniqueClientKey.map(key => {
             switch (key) {
-                case 'ip':
+                case "ip":
                     return clientIp;
-                case 'user-agent':
-                    return req.header('user-agent') || 'user-agent-not-detected';
-                case 'hostname':
+                case "user-agent":
+                    return req.header("user-agent") || "user-agent-not-detected";
+                case "hostname":
                     return req.hostname;
-                case 'url':
+                case "url":
                     return req.url;
-                case 'geo-country':
+                case "geo-country":
                     return country;
-                case 'geo-city':
+                case "geo-city":
                     return city;
                 default:
-                    return '-';
+                    return "-";
             }
         });
-        const compositeKey = keyParts.join('|');
+        const compositeKey = keyParts.join("|");
 
         // Initialize an array for this key
         if (!this.compositeCounters[compositeKey]) {
@@ -59,31 +62,37 @@ export class CompositeRule extends ConditionsRule {
         const now = Date.now();
         const periodMs = (this.rule.period || 60) * 1000;
         // We delete old notes (outside the period)
-        this.compositeCounters[compositeKey] = this.compositeCounters[compositeKey].filter((item: ICountersItem) => now - item.time <= periodMs);
+        this.compositeCounters[compositeKey] = this.compositeCounters[compositeKey].filter(
+            (item: ICountersItem) => now - item.time <= periodMs,
+        );
 
         // Add the current request
         this.compositeCounters[compositeKey].push({
             time: now,
-            requestId
+            requestId,
         });
-        this.log.debug('CompositeRule '+ this.rule.name+' counter by key:' + compositeKey, this.compositeCounters[compositeKey].length);
+        this.log.debug(
+            "CompositeRule " + this.rule.name + " counter by key:" + compositeKey,
+            this.compositeCounters[compositeKey].length,
+        );
 
         // If the number of queries exceeds the limit, we block IP
         if (this.compositeCounters[compositeKey].length >= (this.rule.limit || 100)) {
-            this.log.info(`The composite rule ${this.rule.name} worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`);
+            this.log.info(
+                `The composite rule ${this.rule.name} worked for ${clientIp} (key: ${compositeKey}). request: ${this.compositeCounters[compositeKey].length}`,
+            );
             const requestIds = this.compositeCounters[compositeKey].map(item => item.requestId);
             this.compositeCounters[compositeKey] = []; // reset counter to 0;
             return {
-                ruleId: CompositeRule.ID+ ':' + this.rule.name,
+                ruleId: CompositeRule.ID + ":" + this.rule.name,
                 ip: clientIp,
                 duration: this.rule.duration,
                 escalationRate: this.rule?.escalationRate || 1.0,
-                requestIds: requestIds
+                requestIds: requestIds,
             };
         }
 
         return Promise.resolve(false);
-
     }
 
     /**
@@ -103,16 +112,13 @@ export class CompositeRule extends ConditionsRule {
     //         }
     //     }
     // }
-
-
 }
 
 export interface ICompositeRuleConfig extends IAbstractRuleConfig {
-    uniqueClientKey: string[]
-    conditions: IConditionsRule[]
-    limit: number
-    period: number
-    duration: number
-    escalationRate?: number
-
+    uniqueClientKey: string[];
+    conditions: IConditionsRule[];
+    limit: number;
+    period: number;
+    duration: number;
+    escalationRate?: number;
 }

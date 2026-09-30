@@ -1,5 +1,4 @@
-
-import * as crypto from 'crypto';
+import * as crypto from "crypto";
 
 /**
  * Hash utilities compatible with frontend
@@ -12,7 +11,7 @@ export class HashUtils {
      */
     public static sha256(message: string): string {
         try {
-            return crypto.createHash('sha256').update(message, 'utf8').digest('hex');
+            return crypto.createHash("sha256").update(message, "utf8").digest("hex");
         } catch (error) {
             // Fallback to DJB2 in case of issues
             return HashUtils.djb2Hash(message);
@@ -26,16 +25,16 @@ export class HashUtils {
      */
     public static djb2Hash(str: string): string {
         let hash = 5381;
-        const input = typeof str === 'string' ? str : String(str);
+        const input = typeof str === "string" ? str : String(str);
 
         for (let i = 0; i < input.length; i++) {
-            hash = ((hash << 5) + hash) + input.charCodeAt(i);
-            hash = hash & 0xFFFFFFFF; // Convert to 32-bit number
+            hash = (hash << 5) + hash + input.charCodeAt(i);
+            hash = hash & 0xffffffff; // Convert to 32-bit number
         }
 
         // Convert to positive number and then to hex
         const positiveHash = Math.abs(hash);
-        return positiveHash.toString(16).padStart(8, '0');
+        return positiveHash.toString(16).padStart(8, "0");
     }
 
     /**

@@ -1,10 +1,7 @@
 export abstract class Singleton<T, Args extends any[]> {
     private static _instances = new Map<new (...args: any[]) => unknown, unknown>();
 
-    static build<T, Args extends unknown[]>(
-        this: new (...args: Args) => T,
-        ...args: Args
-    ): T {
+    static build<T, Args extends unknown[]>(this: new (...args: Args) => T, ...args: Args): T {
         if (Singleton._instances.has(this)) {
             throw new Error(`${this.name} instance already built.`);
         }
@@ -25,5 +22,4 @@ export abstract class Singleton<T, Args extends any[]> {
     public static reset(this: any): void {
         Singleton._instances.delete(this);
     }
-
 }

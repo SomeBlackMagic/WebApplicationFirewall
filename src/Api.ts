@@ -1,61 +1,76 @@
-import {Request, Response} from "express-serve-static-core";
+import { Request, Response } from "express-serve-static-core";
 import * as core from "express-serve-static-core";
-import {BanInfo, JailManager} from "@waf/Jail/JailManager";
-import {HttpBasicAuth, IHttpBasicAuthConfig} from "@waf/Utils/HttpBasicAuth";
-import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import {Log} from "@waf/Log";
+import { BanInfo, JailManager } from "@waf/Jail/JailManager";
+import { HttpBasicAuth, IHttpBasicAuthConfig } from "@waf/Utils/HttpBasicAuth";
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { Log } from "@waf/Log";
 
 export class Api {
-
-    private readonly authenticator: HttpBasicAuth
+    private readonly authenticator: HttpBasicAuth;
 
     public constructor(
         private readonly config: IApiConfig,
         private readonly webApp: core.Express,
         private jailManager?: JailManager,
-        private readonly logger?: LoggerInterface
+        private readonly logger?: LoggerInterface,
     ) {
-        this.config = Object.assign({
-            logLevel: 'info',
-        }, config)
+        this.config = Object.assign(
+            {
+                logLevel: "info",
+            },
+            config,
+        );
         this.authenticator = new HttpBasicAuth(this.config.auth);
 
         if (!this.logger) {
-            this.logger = Log.instance.withCategory('app.Api');
+            this.logger = Log.instance.withCategory("app.Api");
         }
     }
 
     public bootstrap() {
-        if(!this.jailManager) {
+        if (!this.jailManager) {
             this.jailManager = JailManager.get();
         }
 
-        this.logger.info('Api module bootstrap');
-        this.webApp.get('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.getBannedUsers.bind(this));
-        this.webApp.delete('/waf/jail-manager/baned-users', this.authenticator.authentication.bind(this.authenticator), this.deleteBannedUsers.bind(this));
+        this.logger.info("Api module bootstrap");
+        this.webApp.get(
+            "/waf/jail-manager/baned-users",
+            this.authenticator.authentication.bind(this.authenticator),
+            this.getBannedUsers.bind(this),
+        );
+        this.webApp.delete(
+            "/waf/jail-manager/baned-users",
+            this.authenticator.authentication.bind(this.authenticator),
+            this.deleteBannedUsers.bind(this),
+        );
 
         // Kubernetes health and readiness checks (without authentication)
-        this.webApp.get('/waf/health/liveness', this.livenessProbe.bind(this));
-        this.webApp.get('/waf/health/readiness', this.readinessProbe.bind(this));
+        this.webApp.get("/waf/health/liveness", this.livenessProbe.bind(this));
+        this.webApp.get("/waf/health/readiness", this.readinessProbe.bind(this));
     }
 
-
     protected getBannedUsers(req: Request, res: Response) {
-        res.type('json').send(JSON.stringify(this.jailManager.getAllBlockedIp().map((item: BanInfo) => {
-            // @ts-ignore
-            item.unbanTimeISO = new Date(item.unbanTime).toISOString()
-            // @ts-ignore
-            item.isBlocked = Date.now() < parseInt(item.unbanTime);
-            return item;
-        })));
+        res.type("json").send(
+            JSON.stringify(
+                this.jailManager.getAllBlockedIp().map((item: BanInfo) => {
+                    // @ts-ignore
+                    item.unbanTimeISO = new Date(item.unbanTime).toISOString();
+                    // @ts-ignore
+                    item.isBlocked = Date.now() < parseInt(item.unbanTime);
+                    return item;
+                }),
+            ),
+        );
     }
 
     protected deleteBannedUsers(req: Request, res: Response) {
-        if(!req.body?.ip) {
-            res.type('json').status(500).send(JSON.stringify({msg: 'ip is required'}));
+        if (!req.body?.ip) {
+            res.type("json")
+                .status(500)
+                .send(JSON.stringify({ msg: "ip is required" }));
         }
         const result = this.jailManager.deleteBlockedIp(req.body.ip);
-        res.type('json').send(JSON.stringify({status: result}));
+        res.type("json").send(JSON.stringify({ status: result }));
     }
 
     /**
@@ -64,8 +79,8 @@ export class Api {
      */
     public livenessProbe(req: Request, res: Response) {
         res.status(200).json({
-            status: 'ok',
-            timestamp: new Date().toISOString()
+            status: "ok",
+            timestamp: new Date().toISOString(),
         });
     }
 
@@ -77,13 +92,12 @@ export class Api {
         // Here you can add dependency checks (database, external services, etc.)
         // For example, just returning a ready status
         res.status(200).json({
-            status: 'ready',
-            timestamp: new Date().toISOString()
+            status: "ready",
+            timestamp: new Date().toISOString(),
         });
     }
-
 }
 
 export interface IApiConfig {
-    auth: IHttpBasicAuthConfig
+    auth: IHttpBasicAuthConfig;
 }

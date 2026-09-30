@@ -1,48 +1,47 @@
-import fs, {promises as fsPromises} from "fs";
-import {LoggerInterface} from "@elementary-lab/standards/src/LoggerInterface";
-import lockfile, {LockOptions} from "proper-lockfile";
+import fs, { promises as fsPromises } from "fs";
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import lockfile, { LockOptions } from "proper-lockfile";
 import path from "node:path";
-import {JailStorageInterface} from "@waf/Jail/JailStorageInterface";
-import {BanInfo} from "@waf/Jail/JailManager";
-import {Log} from "@waf/Log";
+import { JailStorageInterface } from "@waf/Jail/JailStorageInterface";
+import { BanInfo } from "@waf/Jail/JailManager";
+import { Log } from "@waf/Log";
 import * as promClient from "prom-client";
-import {Metric} from "prom-client";
-import {Metrics} from "@waf/Metrics/Metrics";
+import { Metric } from "prom-client";
+import { Metrics } from "@waf/Metrics/Metrics";
 
 export class JailStorageFile implements JailStorageInterface {
-
     private metrics: Metric[] = [];
 
-    private lock: () => Promise<void>|null;
+    private lock: () => Promise<void> | null;
 
     public constructor(
         private readonly config?: IJailStorageFileConfig,
         private readonly metricsInstance?: Metrics,
-        private readonly logger?: LoggerInterface
+        private readonly logger?: LoggerInterface,
     ) {
-        if(!this.config?.filePath) {
-            this.config.filePath = process.cwd() + '/data/blocked_ips.json'
+        if (!this.config?.filePath) {
+            this.config.filePath = process.cwd() + "/data/blocked_ips.json";
         }
 
-        if(!metricsInstance) {
+        if (!metricsInstance) {
             this.metricsInstance = Metrics.get();
         }
 
         if (!logger) {
-            this.logger = Log.instance.withCategory('app.Jail.JailStorageFile')
+            this.logger = Log.instance.withCategory("app.Jail.JailStorageFile");
         }
 
-        if(this.metricsInstance.isEnabled()) {
+        if (this.metricsInstance.isEnabled()) {
             this.bootstrapMetrics();
         }
     }
 
     public bootstrapMetrics() {
-        this.metrics['storage_data'] = new promClient.Gauge({
-            name: 'waf_jail_storage_data',
-            help: 'How many data in storage grouped by ruleId, country, city, isBlocked',
-            labelNames: ['country', 'city', 'ruleId', 'isBlocked', 'escalationCount'],
-            registers: [this.metricsInstance.getRegisters()]
+        this.metrics["storage_data"] = new promClient.Gauge({
+            name: "waf_jail_storage_data",
+            help: "How many data in storage grouped by ruleId, country, city, isBlocked",
+            labelNames: ["country", "city", "ruleId", "isBlocked", "escalationCount"],
+            registers: [this.metricsInstance.getRegisters()],
         });
     }
 
@@ -50,28 +49,28 @@ export class JailStorageFile implements JailStorageInterface {
         let fileData = [];
 
         // We guarantee that the catalog for the file exists
-        await fsPromises.mkdir(path.dirname(this.config.filePath), {recursive: true});
+        await fsPromises.mkdir(path.dirname(this.config.filePath), { recursive: true });
 
         if (!fs.existsSync(this.config.filePath)) {
-            await fsPromises.writeFile(this.config.filePath, JSON.stringify([], null, 2))
+            await fsPromises.writeFile(this.config.filePath, JSON.stringify([], null, 2));
         }
 
-        if(isLock) {
+        if (isLock) {
             this.logger.trace('Create lock for file "' + this.config.filePath + '"');
             this.lock = await lockfile.lock(this.config.filePath, {
-                retries: {retries: 3}
+                retries: { retries: 3 },
             });
             this.logger.trace('File locked "' + this.config.filePath + '"');
         }
 
         try {
-            const content = await fsPromises.readFile(this.config.filePath, 'utf8');
+            const content = await fsPromises.readFile(this.config.filePath, "utf8");
             fileData = JSON.parse(content);
         } catch (err) {
-            this.logger.emergency('can not open file with jail IP:', err)
+            this.logger.emergency("can not open file with jail IP:", err);
             fileData = [];
         }
-        this.reCalculateStorageMetrics(fileData)
+        this.reCalculateStorageMetrics(fileData);
         return fileData;
     }
 
@@ -79,7 +78,7 @@ export class JailStorageFile implements JailStorageInterface {
         const mergedItems = this.mergeBanLists(oldItems, newItems);
 
         await fsPromises.writeFile(this.config.filePath, JSON.stringify(mergedItems, null, 2));
-        if(unlockAfterSave && this.lock !== null) {
+        if (unlockAfterSave && this.lock !== null) {
             await this.lock();
             this.lock = null;
         }
@@ -112,17 +111,16 @@ export class JailStorageFile implements JailStorageInterface {
             counts.set(key, (counts.get(key) ?? 0) + 1);
         }
         for (const [key, value] of counts.entries()) {
-            const [ruleId, country, city, isBlocked, escalationCount] = key.split('|||');
-            this.metrics['storage_data']?.set({ ruleId, country, city, isBlocked, escalationCount}, value);
+            const [ruleId, country, city, isBlocked, escalationCount] = key.split("|||");
+            this.metrics["storage_data"]?.set({ ruleId, country, city, isBlocked, escalationCount }, value);
         }
     }
-
 }
 
 export interface IJailStorageFileConfig {
-    filePath?: string
+    filePath?: string;
     locker: {
-        enabled: boolean
-        config?: LockOptions
-    }
+        enabled: boolean;
+        config?: LockOptions;
+    };
 }

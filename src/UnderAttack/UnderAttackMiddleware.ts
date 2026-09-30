@@ -1,17 +1,17 @@
-import {Request, Response, NextFunction} from 'express';
-import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
-import {Log} from '@waf/Log';
-import * as crypto from 'crypto';
-import {Singleton} from "@waf/Utils/Singleton";
-import {UnderAttackMetrics} from "@waf/UnderAttack/UnderAttackMetrics";
-import {FingerprintValidator, IFingerprintValidatorConfig} from "@waf/UnderAttack/FingerprintValidator";
-import {BotDetector} from "@waf/UnderAttack/BotDetector";
-import {ChallengeManager, IChallengeManagerConfig} from "@waf/UnderAttack/ChallengeManager";
-import {isString, merge} from 'lodash';
+import { Request, Response, NextFunction } from "express";
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { Log } from "@waf/Log";
+import * as crypto from "crypto";
+import { Singleton } from "@waf/Utils/Singleton";
+import { UnderAttackMetrics } from "@waf/UnderAttack/UnderAttackMetrics";
+import { FingerprintValidator, IFingerprintValidatorConfig } from "@waf/UnderAttack/FingerprintValidator";
+import { BotDetector } from "@waf/UnderAttack/BotDetector";
+import { ChallengeManager, IChallengeManagerConfig } from "@waf/UnderAttack/ChallengeManager";
+import { isString, merge } from "lodash";
 import bodyParser from "body-parser";
-import {ContentLoader} from "@waf/Utils/ContentLoader";
-import {UnderAttackConditionConfig, UnderAttackConditions} from "@waf/UnderAttack/UnderAttackConditions";
-import {Metrics} from "@waf/Metrics/Metrics";
+import { ContentLoader } from "@waf/Utils/ContentLoader";
+import { UnderAttackConditionConfig, UnderAttackConditions } from "@waf/UnderAttack/UnderAttackConditions";
+import { Metrics } from "@waf/Metrics/Metrics";
 import fs from "fs";
 
 export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUnderAttackConfig]> {
@@ -27,28 +27,28 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         private readonly metrics?: UnderAttackMetrics,
     ) {
         super();
-        this.config = merge<object|IUnderAttackConfig, IUnderAttackConfig>({
-            enabled: false,
-            challengeDurationMs: 1000 * 60 * 30,
-            conditions: [],
-            fingerprintChecks: {
+        this.config = merge<object | IUnderAttackConfig, IUnderAttackConfig>(
+            {
                 enabled: false,
-                minScore: 0.5,
+                challengeDurationMs: 1000 * 60 * 30,
+                conditions: [],
+                fingerprintChecks: {
+                    enabled: false,
+                    minScore: 0.5,
+                },
+                skipUrls: ["/favicon.ico"],
+                bypassHeaders: [],
+                challengePage: {
+                    title: "WAF Security check",
+                    path: process.cwd() + "/pages/challenge/index.min.html",
+                },
+                cookieName: "waf",
             },
-            skipUrls: [
-                '/favicon.ico',
-            ],
-            bypassHeaders: [],
-            challengePage: {
-                title: 'WAF Security check',
-                path: process.cwd() + '/pages/challenge/index.min.html'
-            },
-            cookieName: 'waf'
-
-        }, config);
+            config,
+        );
 
         if (!this.log) {
-            this.log = Log.instance.withCategory('app.UnderAttack');
+            this.log = Log.instance.withCategory("app.UnderAttack");
         }
 
         if (!this.metrics) {
@@ -64,11 +64,9 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             this.challengeManager = new ChallengeManager(this.config.challengeManager);
         }
 
-
         // if(!this.botDetector) {
         //     this.botDetector = new BotDetector(config.botDetection);
         // }
-
 
         if (this.config.conditions.length > 0 && !conditions) {
             this.conditions = new UnderAttackConditions(this.config.conditions);
@@ -77,26 +75,31 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
     private loadChallengeHtml(): void {
         ContentLoader.load(this.config.challengePage.path).then((html: string) => {
-
             this.challengeHtml = html
-                .replace('__COOKIE__', this.config.cookieName)
-                .replace('__TITTLE__', this.config.challengePage.title)
-            ;
+                .replace("__COOKIE__", this.config.cookieName)
+                .replace("__TITTLE__", this.config.challengePage.title);
 
-            this.log.info('Loaded challenge page from', this.config.challengePage.path);
-        })
-
+            this.log.info("Loaded challenge page from", this.config.challengePage.path);
+        });
     }
 
     public bootstrap(): void {
         if (!this.config.enabled) {
             return;
         }
-        this.log.info('UnderAttackMiddleware bootstrap');
+        this.log.info("UnderAttackMiddleware bootstrap");
         this.loadChallengeHtml();
     }
 
-    public async middleware(req: Request, res: Response, next: NextFunction, clientIp: string, country: string, city: string, requestId: string): Promise<boolean> {
+    public async middleware(
+        req: Request,
+        res: Response,
+        next: NextFunction,
+        clientIp: string,
+        country: string,
+        city: string,
+        requestId: string,
+    ): Promise<boolean> {
         if (!this.config.enabled) {
             return true;
         }
@@ -108,14 +111,11 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             }
         }
 
-        if (
-            req.method === 'POST' &&
-            req.url === '/__under_attack_challenge'
-        ) {
-            return new Promise((resolve) => {
-                bodyParser.json()(req, res, async (err) => {
+        if (req.method === "POST" && req.url === "/__under_attack_challenge") {
+            return new Promise(resolve => {
+                bodyParser.json()(req, res, async err => {
                     if (err) {
-                        res.status(400).json({success: false, message: 'Invalid JSON'});
+                        res.status(400).json({ success: false, message: "Invalid JSON" });
                         resolve(true);
                         return;
                     }
@@ -140,7 +140,7 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         const token = req.cookies?.[this.config.cookieName] || null;
         if (token && this.validateToken(token)) {
             this.metrics.incrementValidTokenCount();
-            return true
+            return true;
         }
 
         // // Record the beginning of a Challenge to measure response time
@@ -148,16 +148,19 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
         // Display the challenge page
         this.metrics.incrementChallengePageShown();
-        res.send(this.challengeHtml
-            .replace('__CHALLENGE_DATA___', JSON.stringify(this.challengeManager.generateChallengeProblem(clientIp, requestId)))
+        res.send(
+            this.challengeHtml.replace(
+                "__CHALLENGE_DATA___",
+                JSON.stringify(this.challengeManager.generateChallengeProblem(clientIp, requestId)),
+            ),
         );
         return false;
     }
 
     private shouldSkipUrl(path: string): boolean {
         return this.config.skipUrls.some(pattern => {
-            if (pattern.includes('*')) {
-                const regexPattern = pattern.replace(/\*/g, '.*');
+            if (pattern.includes("*")) {
+                const regexPattern = pattern.replace(/\*/g, ".*");
                 return new RegExp(`^${regexPattern}$`).test(path);
             }
             return pattern === path;
@@ -169,13 +172,13 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             if (req.header(header.name) === header.value) {
                 return true;
             }
-        })
+        });
     }
 
     protected validateToken(token: string): boolean {
         try {
-            const [data, signature] = token.split('.');
-            const payload = JSON.parse(Buffer.from(data, 'base64').toString());
+            const [data, signature] = token.split(".");
+            const payload = JSON.parse(Buffer.from(data, "base64").toString());
 
             // Check the validity period
             if (payload.exp < Date.now()) {
@@ -184,39 +187,43 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
             // Check the signature
             const expectedSignature = crypto
-                .createHmac('sha256', process.env.WAF_ENCTIPRION_SECRET_KEY || 'default-secret-key')
+                .createHmac("sha256", process.env.WAF_ENCTIPRION_SECRET_KEY || "default-secret-key")
                 .update(data)
-                .digest('base64');
+                .digest("base64");
 
             return signature === expectedSignature;
         } catch (error) {
-            this.log.error('Token validation error', error);
+            this.log.error("Token validation error", error);
             return false;
         }
     }
 
-    protected async handleChallengeRequest(request: Request, response: Response, clientIp: string, requestId: string): Promise<Response> {
-
+    protected async handleChallengeRequest(
+        request: Request,
+        response: Response,
+        clientIp: string,
+        requestId: string,
+    ): Promise<Response> {
         const fingerprint = request.body?.fingerprint;
         // const data = request.body?.data;
         // const challenge = request.body?.challenge;
 
         if (!fingerprint) {
             this.metrics.incrementFailedChallengeCount();
-            return response.status(400).json({success: false, message: 'Invalid request'});
+            return response.status(400).json({ success: false, message: "Invalid request" });
         }
 
         const result = this.runValidationChecks(fingerprint, clientIp, requestId, request);
 
         if (isString(result)) {
-            return response.status(403).json({success: false, message: result});
+            return response.status(403).json({ success: false, message: result });
         }
 
         // Create a token for a verified client
         const token = this.generateToken();
 
         this.metrics.incrementPassedCount();
-        response.json({success: true, token});
+        response.json({ success: true, token });
     }
 
     private generateToken(): string {
@@ -225,11 +232,11 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
             iat: Date.now(),
         };
 
-        const data = Buffer.from(JSON.stringify(payload)).toString('base64');
+        const data = Buffer.from(JSON.stringify(payload)).toString("base64");
         const signature = crypto
-            .createHmac('sha256', process.env.WAF_ENCTIPRION_SECRET_KEY || 'default-secret-key')
+            .createHmac("sha256", process.env.WAF_ENCTIPRION_SECRET_KEY || "default-secret-key")
             .update(data)
-            .digest('base64');
+            .digest("base64");
 
         return `${data}.${signature}`;
     }
@@ -237,23 +244,22 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
     protected runValidationChecks(fingerprint: any, clientIp: any, requestId: any, request: Request): string | true {
         // Check the proof generation time
 
-        if (!fingerprint || typeof fingerprint !== 'object') {
-            this.log.warn('Invalid fingerprint data', {fingerprint});
+        if (!fingerprint || typeof fingerprint !== "object") {
+            this.log.warn("Invalid fingerprint data", { fingerprint });
             this.metrics.incrementFailedChallengeCount();
-            return 'Invalid fingerprint data';
+            return "Invalid fingerprint data";
         }
 
         // Check the browser fingerprint
-        const fingerprintScore = this.fingerprintValidator.validate(fingerprint, requestId, '', '');
+        const fingerprintScore = this.fingerprintValidator.validate(fingerprint, requestId, "", "");
 
         // Bot check
         // const botScore = this.botDetector.detect(request, data, clientIp);
 
         if (!fingerprintScore) {
             this.metrics.incrementRejectedCount();
-            return 'Challenge failed';
+            return "Challenge failed";
         }
-
 
         // fs.writeFileSync('test_' + Date.now() + '.json',);
         // if (fingerprint.proofGenerationTime && fingerprint.browserProofs) {
@@ -297,23 +303,20 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
         // }
         //
 
-
         return true;
     }
-
 }
-
 
 export interface IUnderAttackConfig {
     enabled?: boolean;
-    mode?: 'audit' | 'strict';
+    mode?: "audit" | "strict";
     challengeDurationMs?: number;
 
     conditions?: UnderAttackConditionConfig[];
 
     fingerprintChecks?: IFingerprintValidatorConfig;
 
-    challengeManager?: IChallengeManagerConfig,
+    challengeManager?: IChallengeManagerConfig;
 
     // botDetection?: IBotDetectorConfig;
 

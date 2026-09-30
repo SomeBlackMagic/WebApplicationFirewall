@@ -36,7 +36,7 @@ export class SenderLoop {
                     return;
                 }
             } catch (error) {
-                console.error('Error in callback:', error);
+                console.error("Error in callback:", error);
             }
 
             this.scheduleNext(callback, delay);

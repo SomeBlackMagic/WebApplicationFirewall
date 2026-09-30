@@ -1,8 +1,7 @@
-import {LoggerInterface} from '@elementary-lab/standards/src/LoggerInterface';
-import {Log} from '@waf/Log';
-import * as crypto from 'crypto';
-import {merge} from "lodash";
-
+import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { Log } from "@waf/Log";
+import * as crypto from "crypto";
+import { merge } from "lodash";
 
 /**
  * Class for managing checks with mathematical tasks (Proof of work)
@@ -15,38 +14,40 @@ export class ChallengeManager {
         private readonly config?: IChallengeManagerConfig,
         private readonly log?: LoggerInterface,
     ) {
-        this.config = merge<object | IChallengeManagerConfig, IChallengeManagerConfig>({
-            autoCleanup: true,
-            autoCleanupInterval: 60 * 60 * 1000,
-        }, config);
+        this.config = merge<object | IChallengeManagerConfig, IChallengeManagerConfig>(
+            {
+                autoCleanup: true,
+                autoCleanupInterval: 60 * 60 * 1000,
+            },
+            config,
+        );
 
         if (!this.log) {
-            this.log = Log.instance.withCategory('app.UnderAttack.ChallengeManager');
+            this.log = Log.instance.withCategory("app.UnderAttack.ChallengeManager");
         }
 
         if (this.config.autoCleanup) {
             this.cleanupInterval = setInterval(() => this.cleanupChallenges(), this.config.autoCleanupInterval);
-            process.on('exit', () => clearInterval(this.cleanupInterval));
+            process.on("exit", () => clearInterval(this.cleanupInterval));
         }
-
     }
 
     /**
      * Generates a new mathematical task for checking
      */
-    public generateChallengeProblem(clientIp:string, requestId:string): IChallengeProblem {
-        const challengeId = crypto.randomBytes(16).toString('hex');
-        this.log.debug('Generated challenge', {
+    public generateChallengeProblem(clientIp: string, requestId: string): IChallengeProblem {
+        const challengeId = crypto.randomBytes(16).toString("hex");
+        this.log.debug("Generated challenge", {
             id: challengeId,
             clientIp,
-           requestId
+            requestId,
         });
         const seed = Math.floor(Math.random() * 1000000);
         const iterations = 1000 + Math.floor(Math.random() * 2000);
         const multiplier = 1103515245;
         const addend = 12345;
         const modulus = 2147483647;
-        const proofSalt = crypto.randomBytes(8).toString('hex'); // Unique salt for proofs
+        const proofSalt = crypto.randomBytes(8).toString("hex"); // Unique salt for proofs
 
         // Calculate the correct answer
         let expectedResult = seed;
@@ -58,7 +59,7 @@ export class ChallengeManager {
         this.challengeSolutions.set(challengeId, {
             result: expectedResult,
             proofSalt: proofSalt,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         });
 
         return {
@@ -68,7 +69,7 @@ export class ChallengeManager {
             multiplier,
             addend,
             modulus,
-            proofSalt // Send the salt to client
+            proofSalt, // Send the salt to client
         };
     }
 
@@ -92,13 +93,13 @@ export class ChallengeManager {
         const storedChallenge = this.challengeSolutions.get(challenge.id);
 
         if (!storedChallenge) {
-            this.log.debug('Challenge not found', {id: challenge.id});
+            this.log.debug("Challenge not found", { id: challenge.id });
             return null;
         }
 
         // Check time (not more than 5 minutes)
         if (Date.now() - storedChallenge.timestamp > 300000) {
-            this.log.debug('Challenge expired', {id: challenge.id});
+            this.log.debug("Challenge expired", { id: challenge.id });
             this.challengeSolutions.delete(challenge.id);
             return null;
         }
@@ -110,10 +111,10 @@ export class ChallengeManager {
         this.challengeSolutions.delete(challenge.id);
 
         if (!isValid) {
-            this.log.debug('Invalid challenge solution', {
+            this.log.debug("Invalid challenge solution", {
                 id: challenge.id,
                 expected: storedChallenge.result,
-                actual: challenge.solution
+                actual: challenge.solution,
             });
             return null;
         }
@@ -133,8 +134,8 @@ export class ChallengeManager {
             }
         }
 
-        this.log.debug('Challenge cleanup completed', {
-            remainingCount: this.challengeSolutions.size
+        this.log.debug("Challenge cleanup completed", {
+            remainingCount: this.challengeSolutions.size,
         });
     }
 }

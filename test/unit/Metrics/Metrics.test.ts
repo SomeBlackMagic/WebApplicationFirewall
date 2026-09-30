@@ -1,18 +1,17 @@
-
 import * as core from "express-serve-static-core";
-import {IMetricsConfig, Metrics} from "@waf/Metrics/Metrics";
-import {Registry} from "prom-client";
+import { IMetricsConfig, Metrics } from "@waf/Metrics/Metrics";
+import { Registry } from "prom-client";
 
-jest.mock('express');
+jest.mock("express");
 
-describe('Metrics tests', () => {
+describe("Metrics tests", () => {
     const config: IMetricsConfig = {
         enabled: true,
         auth: {
             enabled: false,
-        }
+        },
     };
-    const webApp = {use: jest.fn(), get: jest.fn()} as unknown as core.Express;
+    const webApp = { use: jest.fn(), get: jest.fn() } as unknown as core.Express;
     const logger = null;
 
     // describe('instance', () => {
@@ -27,8 +26,8 @@ describe('Metrics tests', () => {
     //     });
     // });
 
-    describe('bootstrap', () => {
-        it('should register metrics', () => {
+    describe("bootstrap", () => {
+        it("should register metrics", () => {
             const instance = new Metrics(config, webApp, logger);
             instance.bootstrap();
 
@@ -37,14 +36,13 @@ describe('Metrics tests', () => {
         });
     });
 
-    describe('registerEndpoint', () => {
-        it('should call webApp.use and webApp.get', () => {
+    describe("registerEndpoint", () => {
+        it("should call webApp.use and webApp.get", () => {
             const instance = new Metrics(config, webApp, logger);
             instance.bootstrap();
 
             expect(webApp.use).toHaveBeenCalled();
-            expect(webApp.get).toHaveBeenCalledWith('/waf/metrics', expect.any(Function), expect.any(Function));
-
+            expect(webApp.get).toHaveBeenCalledWith("/waf/metrics", expect.any(Function), expect.any(Function));
         });
 
         // it('should respond with metrics on GET /waf/metrics', async () => {

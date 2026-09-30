@@ -1,30 +1,35 @@
-import {BanInfo, JailManager} from "@waf/Jail/JailManager";
-import {CompositeRule} from "@waf/Jail/Rules/CompositeRule";
-import {StaticRule} from "@waf/Jail/Rules/StaticRule";
-import {FlexibleRule} from "@waf/Jail/Rules/FlexibleRule";
-import {AbstractRule, IAbstractRuleConfig} from "@waf/Jail/Rules/AbstractRule";
-import {createRequest, createResponse} from "node-mocks-http";
-import {IBannedIPItem} from "@waf/WAFMiddleware";
-import {Registry} from "prom-client";
-import {Metrics} from "@waf/Metrics/Metrics";
+import { BanInfo, JailManager } from "@waf/Jail/JailManager";
+import { CompositeRule } from "@waf/Jail/Rules/CompositeRule";
+import { StaticRule } from "@waf/Jail/Rules/StaticRule";
+import { FlexibleRule } from "@waf/Jail/Rules/FlexibleRule";
+import { AbstractRule, IAbstractRuleConfig } from "@waf/Jail/Rules/AbstractRule";
+import { createRequest, createResponse } from "node-mocks-http";
+import { IBannedIPItem } from "@waf/WAFMiddleware";
+import { Registry } from "prom-client";
+import { Metrics } from "@waf/Metrics/Metrics";
 // @ts-ignore
-import {MetricsHelper} from "@test/Helpers/MetricsHelper";
+import { MetricsHelper } from "@test/Helpers/MetricsHelper";
 
 jest.useFakeTimers();
-jest.spyOn(global, 'setInterval');
+jest.spyOn(global, "setInterval");
 
-describe('Jail Manager', () => {
-    let jailManager: JailManager | JailManager & {
-        jestLoadBlockedIPsLoaded(data: BanInfo[]): void;
-    };
-
+describe("Jail Manager", () => {
+    let jailManager:
+        | JailManager
+        | (JailManager & {
+              jestLoadBlockedIPsLoaded(data: BanInfo[]): void;
+          });
 
     beforeEach(() => {
-        jailManager = new class extends JailManager {
+        jailManager = new (class extends JailManager {
             public jestLoadBlockedIPsLoaded(data: BanInfo[]) {
-                this.blockedIPsLoaded = Object.fromEntries(data.map((item => { return [item.ip, item] })));
+                this.blockedIPsLoaded = Object.fromEntries(
+                    data.map(item => {
+                        return [item.ip, item];
+                    }),
+                );
             }
-        }({
+        })({
             enabled: true,
             filterRules: [],
             // syncInterval: 5000,
@@ -32,13 +37,13 @@ describe('Jail Manager', () => {
         });
     });
 
-    describe('check', () => {
+    describe("check", () => {
         const metricRegister: Registry = new Registry();
         let defaultMetrics: Metrics;
 
         beforeEach(async () => {
             defaultMetrics = MetricsHelper.buildMetrics(metricRegister);
-            jailManager = new JailManager({enabled: true, filterRules: []}, null, defaultMetrics);
+            jailManager = new JailManager({ enabled: true, filterRules: [] }, null, defaultMetrics);
             // Initialize metrics for tests
             await jailManager.bootstrap();
         });
@@ -48,135 +53,105 @@ describe('Jail Manager', () => {
             jest.clearAllMocks();
         });
 
-        it('check if JailManager is disabled', async () => {
-            jailManager = new JailManager({enabled: false, filterRules: []});
+        it("check if JailManager is disabled", async () => {
+            jailManager = new JailManager({ enabled: false, filterRules: [] });
 
-            const result = await jailManager.check(
-                '192.168.1.1',
-                'USA',
-                'Chicago',
-                createRequest(),
-                'request-id-1',
-            );
-            expect(result).toBeFalsy()
+            const result = await jailManager.check("192.168.1.1", "USA", "Chicago", createRequest(), "request-id-1");
+            expect(result).toBeFalsy();
         });
 
-        it('check if ip is already blocked in store', async () => {
-            jest.spyOn(jailManager as any, 'getBlockedIp').mockReturnValue({
-                ip: '192.168.1.1',
+        it("check if ip is already blocked in store", async () => {
+            jest.spyOn(jailManager as any, "getBlockedIp").mockReturnValue({
+                ip: "192.168.1.1",
                 unbanTime: Date.now() + 10000,
                 escalationCount: 0,
                 duration: 10000,
                 metadata: {
-                    country: 'USA',
-                    city: 'Chicago'
-                }
-
+                    country: "USA",
+                    city: "Chicago",
+                },
             });
-            const result = await jailManager.check(
-                '192.168.1.1',
-                'USA',
-                'Chicago',
-                createRequest(),
-                'request-id-1',
-            );
+            const result = await jailManager.check("192.168.1.1", "USA", "Chicago", createRequest(), "request-id-1");
             expect(result).toBeTruthy();
-            expect(await metricRegister.getSingleMetric('waf_jail_reject_blocked').get()).toEqual({
-                "aggregator": "sum",
-                "help": "Count of users who rejected because he blocked",
-                "name": "waf_jail_reject_blocked",
-                "type": "counter",
-                "values": [
+            expect(await metricRegister.getSingleMetric("waf_jail_reject_blocked").get()).toEqual({
+                aggregator: "sum",
+                help: "Count of users who rejected because he blocked",
+                name: "waf_jail_reject_blocked",
+                type: "counter",
+                values: [
                     {
-                        "labels": {
-                            "city": "Chicago",
-                            "country": "USA"
+                        labels: {
+                            city: "Chicago",
+                            country: "USA",
                         },
-                        "value": 1
-                    }
-                ]
+                        value: 1,
+                    },
+                ],
             });
         });
 
-        it('check if ip is rejected by static rule', async () => {
-            jailManager['rules'][0] = new class extends AbstractRule {
-                public constructor(
-                    private readonly result: boolean
-                ) {
+        it("check if ip is rejected by static rule", async () => {
+            jailManager["rules"][0] = new (class extends AbstractRule {
+                public constructor(private readonly result: boolean) {
                     super();
                 }
 
                 public use(): Promise<false | true | IBannedIPItem> {
                     return Promise.resolve(this.result);
                 }
-            }(true)
-            const result = await jailManager.check(
-                '192.168.1.1',
-                'USA',
-                'Chicago',
-                createRequest(),
-                'request-id-1',
-            );
-            expect(result).toBeTruthy()
-            expect(await metricRegister.getSingleMetric('waf_jail_reject_static').get()).toEqual({
-                "aggregator": "sum",
-                "help": "Count of users who rejected by static ip blocked",
-                "name": "waf_jail_reject_static",
-                "type": "counter",
-                "values": [
+            })(true);
+            const result = await jailManager.check("192.168.1.1", "USA", "Chicago", createRequest(), "request-id-1");
+            expect(result).toBeTruthy();
+            expect(await metricRegister.getSingleMetric("waf_jail_reject_static").get()).toEqual({
+                aggregator: "sum",
+                help: "Count of users who rejected by static ip blocked",
+                name: "waf_jail_reject_static",
+                type: "counter",
+                values: [
                     {
-                        "labels": {
-                            "city": "Chicago",
-                            "country": "USA"
+                        labels: {
+                            city: "Chicago",
+                            country: "USA",
                         },
-                        "value": 1
-                    }
-                ]
+                        value: 1,
+                    },
+                ],
             });
         });
 
-        it('check if ip is rejected and ban by rule', async () => {
-            jailManager['rules'][0] = new class extends AbstractRule {
-                public constructor(
-                    private readonly result: IBannedIPItem
-                ) {
+        it("check if ip is rejected and ban by rule", async () => {
+            jailManager["rules"][0] = new (class extends AbstractRule {
+                public constructor(private readonly result: IBannedIPItem) {
                     super();
                 }
 
                 public use(): Promise<false | true | IBannedIPItem> {
                     return Promise.resolve(this.result);
                 }
-            }({ ip: "192.168.1.1", escalationRate: 1, duration: 10, ruleId: 'local', requestIds: ['request-id-1'] })
-            const result = await jailManager.check(
-                '192.168.1.1',
-                'USA',
-                'Chicago',
-                createRequest(),
-                'request-id-1',
-            );
-            expect(result).toBeTruthy()
-            expect(await metricRegister.getSingleMetric('waf_jail_reject_by_rule').get()).toEqual({
-                "aggregator": "sum",
-                "help": "Count of users who rejected and banned because of rule",
-                "name": "waf_jail_reject_by_rule",
-                "type": "counter",
-                "values": [
+            })({ ip: "192.168.1.1", escalationRate: 1, duration: 10, ruleId: "local", requestIds: ["request-id-1"] });
+            const result = await jailManager.check("192.168.1.1", "USA", "Chicago", createRequest(), "request-id-1");
+            expect(result).toBeTruthy();
+            expect(await metricRegister.getSingleMetric("waf_jail_reject_by_rule").get()).toEqual({
+                aggregator: "sum",
+                help: "Count of users who rejected and banned because of rule",
+                name: "waf_jail_reject_by_rule",
+                type: "counter",
+                values: [
                     {
-                        "labels": {
-                            "city": "Chicago",
-                            "country": "USA",
-                            "ruleId": "local"
+                        labels: {
+                            city: "Chicago",
+                            country: "USA",
+                            ruleId: "local",
                         },
-                        "value": 1
-                    }
-                ]
+                        value: 1,
+                    },
+                ],
             });
         });
-
     });
 
-    describe('loadRules', () => {
-        it('should load all types of rules', () => {
+    describe("loadRules", () => {
+        it("should load all types of rules", () => {
             // @ts-ignore
             const compositeRuleConfig: ICompositeRuleConfig = {
                 type: CompositeRule.ID,
@@ -193,35 +168,31 @@ describe('Jail Manager', () => {
                 // add other properties as required
             };
 
-            const rulesConfig: IAbstractRuleConfig[] = [
-                compositeRuleConfig,
-                staticRuleConfig,
-                flexibleRuleConfig
-            ];
+            const rulesConfig: IAbstractRuleConfig[] = [compositeRuleConfig, staticRuleConfig, flexibleRuleConfig];
 
-            const service = new JailManager({enabled: false, filterRules: rulesConfig});
+            const service = new JailManager({ enabled: false, filterRules: rulesConfig });
             // Call loadRules explicitly since bootstrap() won't run with enabled: false
             service.loadRules();
 
-            expect(service['rules'].length).toBe(3);
-            expect(service['rules'][0] instanceof CompositeRule).toBe(true);
-            expect(service['rules'][1] instanceof StaticRule).toBe(true);
-            expect(service['rules'][2] instanceof FlexibleRule).toBe(true);
+            expect(service["rules"].length).toBe(3);
+            expect(service["rules"][0] instanceof CompositeRule).toBe(true);
+            expect(service["rules"][1] instanceof StaticRule).toBe(true);
+            expect(service["rules"][2] instanceof FlexibleRule).toBe(true);
         });
 
-        it('should throw when an invalid rule type is provided', async () => {
-            const invalidRule: IAbstractRuleConfig = {type: 'Invalid', name: 'foo'};
+        it("should throw when an invalid rule type is provided", async () => {
+            const invalidRule: IAbstractRuleConfig = { type: "Invalid", name: "foo" };
 
             const rulesConfig: IAbstractRuleConfig[] = [invalidRule];
 
-            const service = new JailManager({enabled: true, filterRules: rulesConfig});
+            const service = new JailManager({ enabled: true, filterRules: rulesConfig });
 
             // Bootstrap will call loadRules() which should throw
-            await expect(service.bootstrap()).rejects.toThrow('Can not found observer for rule type - Invalid');
+            await expect(service.bootstrap()).rejects.toThrow("Can not found observer for rule type - Invalid");
         });
     });
 
-    describe('deleteBlockedIp', () => {
+    describe("deleteBlockedIp", () => {
         // it('deletes blocked IP', async () => {
         //     await jailManager.blockIp('192.168.1.1', 60, 1.0, 'unknown', 'unknown');
         //     const blockedIp = jailManager.getBlockedIp('192.168.1.1') as BanInfo;
@@ -232,56 +203,52 @@ describe('Jail Manager', () => {
         //     expect(blockedIpAfterDeletion).toEqual(false)
         // });
 
-        it('returns false when deleting an IP that is not blocked', async () => {
-            const deleteResult = jailManager.deleteBlockedIp('192.168.1.2');
+        it("returns false when deleting an IP that is not blocked", async () => {
+            const deleteResult = jailManager.deleteBlockedIp("192.168.1.2");
             expect(deleteResult).toBe(false);
         });
     });
 
-     //Testing blockIp method
-     describe('blockIp', () => {
-         it('should block an new IP successfully', async () => {
-             const ip = '192.168.1.3';
-             const duration = 60000;
-             const escalationRate = 1.0;
-             const country = 'USA';
-             const city = 'San Francisco';
+    //Testing blockIp method
+    describe("blockIp", () => {
+        it("should block an new IP successfully", async () => {
+            const ip = "192.168.1.3";
+            const duration = 60000;
+            const escalationRate = 1.0;
+            const country = "USA";
+            const city = "San Francisco";
 
-             await jailManager.blockIp(ip, duration, escalationRate, {country, city});
+            await jailManager.blockIp(ip, duration, escalationRate, { country, city });
 
-             const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
+            const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
 
-             expect(blockedIp).not.toBeFalsy();
-             expect(blockedIp.ip).toBe(ip);
-             expect(blockedIp.metadata).toEqual({country, city});
+            expect(blockedIp).not.toBeFalsy();
+            expect(blockedIp.ip).toBe(ip);
+            expect(blockedIp.metadata).toEqual({ country, city });
+        });
 
-         });
+        it("should block an loaded IP successfully", async () => {
+            const ip = "192.168.1.3";
+            const duration = 60000;
+            const escalationRate = 1.0;
+            const country = "USA";
+            const city = "San Francisco";
+            (jailManager as any).jestLoadBlockedIPsLoaded([
+                {
+                    ip: "192.168.1.3",
+                    unbanTime: Date.now(),
+                    escalationCount: 0,
+                    metadata: {},
+                },
+            ]);
+            await jailManager.blockIp(ip, duration, escalationRate, { country, city });
 
-         it('should block an loaded IP successfully', async () => {
-             const ip = '192.168.1.3';
-             const duration = 60000;
-             const escalationRate = 1.0;
-             const country = 'USA';
-             const city = 'San Francisco';
-             (jailManager as any).jestLoadBlockedIPsLoaded([
-                 {
-                     ip: "192.168.1.3",
-                     unbanTime: Date.now(),
-                     escalationCount: 0,
-                     metadata: {}
-                 }
-             ]);
-             await jailManager.blockIp(ip, duration, escalationRate, {country, city});
+            const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
 
-             const blockedIp = jailManager.getBlockedIp(ip) as BanInfo;
-
-             expect(blockedIp).not.toBeFalsy();
-             expect(blockedIp.ip).toBe(ip);
-             expect(blockedIp.metadata).toEqual({country, city});
-             expect(blockedIp.escalationCount).toEqual(1);
-
-         });
-
-     });
-
- });
+            expect(blockedIp).not.toBeFalsy();
+            expect(blockedIp.ip).toBe(ip);
+            expect(blockedIp.metadata).toEqual({ country, city });
+            expect(blockedIp.escalationCount).toEqual(1);
+        });
+    });
+});
