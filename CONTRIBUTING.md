@@ -103,7 +103,7 @@ Regularly sync with upstream:
 
 ```bash
 git fetch upstream
-git rebase upstream/main
+git rebase upstream/master
 ```
 
 ### 4. Run Tests
@@ -115,7 +115,7 @@ Before submitting, ensure all tests pass:
 npm test
 
 # Run with coverage
-npm run test:cov
+npm run test:coverage
 
 # Run linter
 npm run lint
@@ -126,8 +126,10 @@ npm run lint
 ### TypeScript
 
 - Use TypeScript for all new code
-- Provide type annotations for function parameters and return values
-- Avoid `any` type - use specific types or `unknown`
+- Provide explicit type annotations for public API parameters and return values
+- Do not introduce new `any` — use specific types or `unknown` with narrowing
+- Do not add `@ts-ignore` — if a suppression is unavoidable, use `@ts-expect-error` with a comment explaining why
+- Do not rely on implicit returns — always provide an explicit return type for non-trivial functions
 - Use interfaces for object shapes
 
 **Example**:
@@ -150,6 +152,22 @@ function banUser(ip, duration) {  // Missing types
 }
 ```
 
+### Imports
+
+The project uses the `@waf/*` path alias mapped to `src/*` (configured in `tsconfig.json`).
+
+- Use alias imports for cross-module references:
+
+  ```typescript
+  // Good
+  import { JailManager } from '@waf/Jail/JailManager';
+
+  // Bad — relative imports between application modules
+  import { JailManager } from '../../Jail/JailManager';
+  ```
+
+- Relative imports are acceptable only within the same module directory (e.g., inside `Jail/`).
+
 ### Code Style
 
 - **Indentation**: 4 spaces
@@ -161,19 +179,22 @@ function banUser(ip, duration) {  // Missing types
 The project uses ESLint and Prettier for code formatting. Run:
 
 ```bash
-npm run lint        # Check for issues
-npm run lint:fix    # Auto-fix issues
-npm run format      # Format with Prettier
+npm run lint            # Check for issues (ESLint + Prettier)
+npm run fix             # Auto-fix all (ESLint + Prettier)
+npm run fix:eslint      # Auto-fix ESLint issues only
+npm run fix:prettier    # Auto-fix Prettier formatting only
 ```
 
 ### Naming Conventions
 
-- **Files**: camelCase (e.g., `jailManager.ts`)
+- **Class files**: PascalCase (e.g., `JailManager.ts`, `ConfigLoader.ts`, `WAFMiddleware.ts`)
+- **Utility / entry-point files**: camelCase (e.g., `main.ts`)
+- **Directories (domain modules)**: PascalCase (e.g., `Jail/`, `Metrics/`, `UnderAttack/`, `Utils/`)
 - **Classes**: PascalCase (e.g., `JailManager`)
 - **Interfaces**: PascalCase (e.g., `BanInfo`)
 - **Functions/Methods**: camelCase (e.g., `blockIp()`)
 - **Constants**: UPPER_SNAKE_CASE (e.g., `DEFAULT_TIMEOUT`)
-- **Private members**: Prefix with underscore (e.g., `_internalState`)
+- **Private members**: Use TypeScript `private` keyword, no underscore prefix
 
 ### Comments
 
@@ -240,7 +261,7 @@ npm test -- jail-manager.test.ts
 npm test -- --watch
 
 # Coverage
-npm run test:cov
+npm run test:coverage
 ```
 
 ### Test Coverage
