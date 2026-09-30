@@ -23,8 +23,8 @@ RUN --mount=type=cache,sharing=shared,id=npm_cache,target=/root/.npm npm install
 
 FROM gcr.io/distroless/nodejs22-debian12
 
-COPY --from=busybox:1.35.0-uclibc /bin/sh /bin/sh
-COPY --from=busybox:1.35.0-uclibc /bin/tar /bin/tar
+COPY --from=busybox:stable-musl /bin/sh /bin/sh
+COPY --from=busybox:stable-musl /bin/tar /bin/tar
 
 WORKDIR /app
 
