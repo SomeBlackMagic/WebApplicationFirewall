@@ -31,12 +31,14 @@ jailManager:
 
 ### 1. Static Rules
 
-Block IPs from an external JSON list loaded via URL.
+Block requests based on an external JSON list loaded via URL. By default, the list is matched against client IP addresses, but you can configure the rule to match against any request property using the `field` and `method` options.
 
 **Use cases**:
 - Third-party threat intelligence feeds
-- Centrally managed blocklists
+- Centrally managed blocklists (IPs, URLs, user-agents, hostnames)
 - Shared blocklists across multiple WAF instances
+- Blocking requests by URL patterns from an external list
+- Blocking known bad user-agents from a remote feed
 
 **Configuration**:
 
@@ -44,12 +46,33 @@ Block IPs from an external JSON list loaded via URL.
 - name: static-blacklist-feed
   type: static
   linkUrl: "https://example.com/blocklist.json"
-  updateInterval: 60000  # milliseconds
+  updateInterval: 60000  # seconds
+  field: ip              # optional, default: ip
+  method: equals         # optional, default: equals
 ```
 
 **Fields**:
-- **linkUrl**: URL to a JSON file containing array of IP addresses
-- **updateInterval**: How often to refresh the list (in milliseconds)
+- **linkUrl**: URL to a JSON file containing an array of strings
+- **updateInterval**: How often to refresh the list (in seconds)
+- **field** *(optional)*: Request property to match against. Default: `ip`. See [Static Rule Fields](#static-rule-fields).
+- **method** *(optional)*: Comparison method. Default: `equals`. See [Static Rule Methods](#static-rule-methods).
+
+#### Static Rule Fields
+
+| Field | Description | Example value |
+|---|---|---|
+| `ip` | Client IP address (default) | `192.168.1.1` |
+| `url` | Request URL path | `/api/users` |
+| `hostname` | Request hostname | `evil.example.com` |
+| `user-agent` | User-Agent header | `BadBot/1.0` |
+| `header-<name>` | Any HTTP header by name | `header-x-api-key` |
+
+#### Static Rule Methods
+
+| Method | Description |
+|---|---|
+| `equals` | Exact match — the request value must be present in the list |
+| `regexp` | Regex match — each list entry is used as a regular expression pattern to test against the request value |
 
 **Expected JSON format**:
 
@@ -57,20 +80,87 @@ Block IPs from an external JSON list loaded via URL.
 [
   "1.2.3.4",
   "5.6.7.8",
-  "192.168.1.0/24"
+  "10.0.0.0"
 ]
 ```
 
-**Example**:
+For `regexp` method, list entries are regex patterns:
 
+```json
+[
+  "^192\\.168\\.",
+  "^10\\.",
+  "BadBot"
+]
+```
+
+**Examples**:
+
+**Block IPs from an external feed (default behavior)**:
 ```yaml
 - name: abuse-ip-db
   type: static
   linkUrl: "https://api.abuseipdb.com/api/v2/blacklist"
-  updateInterval: 3600000  # Update hourly
+  updateInterval: 3600  # Update hourly
 ```
 
-**Behavior**: If a request comes from an IP in the list, it's immediately blocked. The IP is NOT added to the jail (these are pre-existing blocks).
+**Block IPs matching a regex pattern**:
+```yaml
+- name: block-ip-ranges
+  type: static
+  linkUrl: "https://feeds.example.com/blocked-ranges.json"
+  updateInterval: 3600
+  field: ip
+  method: regexp
+```
+
+Where the JSON list contains patterns like `["^192\\.168\\.", "^10\\.0\\."]`.
+
+**Block known bad user-agents**:
+```yaml
+- name: block-bad-user-agents
+  type: static
+  linkUrl: "https://feeds.example.com/bad-user-agents.json"
+  updateInterval: 86400  # Update daily
+  field: user-agent
+  method: regexp
+```
+
+Where the JSON list contains patterns like `["BadBot", "Crawler", "Scraper"]`.
+
+**Block specific URLs**:
+```yaml
+- name: block-urls
+  type: static
+  linkUrl: "https://internal.example.com/blocked-paths.json"
+  updateInterval: 300
+  field: url
+  method: equals
+```
+
+**Block hostnames**:
+```yaml
+- name: block-hostnames
+  type: static
+  linkUrl: "https://internal.example.com/blocked-hosts.json"
+  updateInterval: 600
+  field: hostname
+  method: regexp
+```
+
+**Block requests by custom header value**:
+```yaml
+- name: block-api-keys
+  type: static
+  linkUrl: "https://internal.example.com/revoked-keys.json"
+  updateInterval: 60
+  field: header-x-api-key
+  method: equals
+```
+
+**Behavior**: If a request property matches an entry in the list, it's immediately blocked. The IP is NOT added to the jail (these are pre-existing blocks).
+
+> **Backward compatibility**: Rules without `field` and `method` work exactly as before — matching client IPs with exact comparison.
 
 ### 2. Flexible Rules
 
@@ -303,11 +393,19 @@ jailManager:
     driverConfig:
       filePath: './data/blocked_ips.json'
   filterRules:
-    # External threat feed
+    # External threat feed (IP blocklist, default behavior)
     - name: threat-intelligence
       type: static
       linkUrl: "https://feeds.example.com/malicious-ips.json"
-      updateInterval: 3600000
+      updateInterval: 3600
+
+    # Block known bad user-agents from external feed
+    - name: bad-user-agents
+      type: static
+      linkUrl: "https://feeds.example.com/bad-user-agents.json"
+      updateInterval: 86400
+      field: user-agent
+      method: regexp
 
     # Block bad bots
     - name: block-bots

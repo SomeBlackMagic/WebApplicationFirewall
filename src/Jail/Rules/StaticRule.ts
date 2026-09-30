@@ -1,4 +1,5 @@
 import { LoggerInterface } from "@elementary-lab/standards/src/LoggerInterface";
+import { Request } from "express-serve-static-core";
 import { clearInterval } from "node:timers";
 import { Log } from "@waf/Log";
 import { AbstractRule, IAbstractRuleConfig } from "@waf/Jail/Rules/AbstractRule";
@@ -6,7 +7,7 @@ import { AbstractRule, IAbstractRuleConfig } from "@waf/Jail/Rules/AbstractRule"
 export class StaticRule extends AbstractRule {
     public static ID: string = "static";
 
-    private blockedIPS: string[] = [];
+    private blockedEntries: string[] = [];
 
     private readonly updateInterval: NodeJS.Timeout = null;
 
@@ -21,7 +22,7 @@ export class StaticRule extends AbstractRule {
         }
 
         this.fetchData().then(() => {
-            this.log.info("Loaded static blacklist on start app", this.blockedIPS.length);
+            this.log.info("Loaded static blacklist on start app", this.blockedEntries.length);
         });
 
         if (this.rule.updateInterval != null && this.rule.updateInterval > 0) {
@@ -35,12 +36,55 @@ export class StaticRule extends AbstractRule {
         }
     }
 
-    public async use(clientIp: string): Promise<boolean> {
-        if (this.blockedIPS.includes(clientIp)) {
-            this.log.debug("Reject request", clientIp);
-            return true;
+    public async use(
+        clientIp: string,
+        country: string,
+        city: string,
+        req: Request,
+        requestId: string,
+    ): Promise<boolean> {
+        const testedValue = this.resolveFieldValue(clientIp, req);
+        if (testedValue === undefined) {
+            return false;
         }
+
+        const method = this.rule.method ?? "equals";
+
+        if (method === "equals") {
+            if (this.blockedEntries.includes(testedValue)) {
+                this.log.debug("Reject request", [testedValue, this.rule.field ?? "ip"]);
+                return true;
+            }
+        } else {
+            for (const pattern of this.blockedEntries) {
+                const regex = this.createRegexFromString(pattern);
+                if (regex.test(testedValue)) {
+                    this.log.debug("Reject request by regexp", [testedValue, pattern, this.rule.field ?? "ip"]);
+                    return true;
+                }
+            }
+        }
+
         return false;
+    }
+
+    private resolveFieldValue(clientIp: string, req: Request): string | undefined {
+        const field = this.rule.field ?? "ip";
+
+        switch (true) {
+            case field === "ip":
+                return clientIp;
+            case field === "url":
+                return req.url;
+            case field === "hostname":
+                return req.hostname;
+            case field === "user-agent":
+                return req.header("user-agent");
+            case field.startsWith("header-"):
+                return req.header(field.replace("header-", ""));
+            default:
+                return undefined;
+        }
     }
 
     private async fetchData(): Promise<void> {
@@ -51,11 +95,6 @@ export class StaticRule extends AbstractRule {
                     return new Response("[]");
                 }
 
-                // TODO implement check result
-                // if(response.headers.get('content-type') !== "application/json") {
-                //     this.log.error('Response is not JSON', [this.rule.linkUrl, response.headers.get('content-type')]);
-                //     return new Response('[]');
-                // }
                 return result;
             })
             .catch(error => {
@@ -65,8 +104,8 @@ export class StaticRule extends AbstractRule {
         try {
             const data = <string[]>await response.json();
             if (data.length !== 0) {
-                this.blockedIPS = data;
-                this.log.trace("Loaded static blacklist", [this.blockedIPS.length, this.rule.name]);
+                this.blockedEntries = data;
+                this.log.trace("Loaded static blacklist", [this.blockedEntries.length, this.rule.name]);
             } else {
                 this.log.warn("Blocked list not updated");
             }
@@ -79,4 +118,6 @@ export class StaticRule extends AbstractRule {
 export interface IStaticRuleConfig extends IAbstractRuleConfig {
     linkUrl: string;
     updateInterval?: number;
+    field?: "ip" | "url" | "hostname" | "user-agent" | string;
+    method?: "regexp" | "equals";
 }
