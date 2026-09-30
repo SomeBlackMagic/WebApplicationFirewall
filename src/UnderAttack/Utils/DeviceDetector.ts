@@ -105,13 +105,13 @@ export class DeviceDetector {
         const android = ua.match(/\bAndroid ([\d.]+)/);
         if (android) return { name: 'Android', version: this.cap(android) };
 
-        const ios = ua.match(/\b(?:CPU (?:iPhone )?OS|iOS) (\d+[_\.\d]*)\b/);
+        const ios = ua.match(/\b(?:CPU (?:iPhone )?OS|iOS) (\d+[_.\d]*)\b/);
         if (ios) return { name: 'iOS', version: this.normVer(this.cap(ios)) };
 
-        const mac = ua.match(/\bMac OS X (\d+[_\.\d]*)\b/);
+        const mac = ua.match(/\bMac OS X (\d+[_.\d]*)\b/);
         if (mac) return { name: 'macOS', version: this.normVer(this.cap(mac)) };
 
-        const cros = ua.match(/\bCrOS [\w-]+ (\d+[\.\d]*)\b/);
+        const cros = ua.match(/\bCrOS [\w-]+ (\d+[.\d]*)\b/);
         if (cros) return { name: 'ChromeOS', version: this.cap(cros) };
 
         if (/\bLinux\b/.test(ua)) return { name: 'Linux', version: null };

@@ -102,10 +102,12 @@ describe('UnderAttackFingerPrint', () => {
                 testFingerprint as IBrowserFingerprint,
             );
 
+            assertionFn(score);
+
             if (expectedExactScore !== null) {
+                // eslint-disable-next-line jest/no-conditional-expect
                 expect(score).toBe(expectedExactScore);
             }
-            assertionFn(score);
 
 
         }

@@ -42,8 +42,8 @@ describe('Metrics tests', () => {
             const instance = new Metrics(config, webApp, logger);
             instance.bootstrap();
 
-            expect(webApp.use).toBeCalled();
-            expect(webApp.get).toBeCalledWith('/waf/metrics', expect.any(Function), expect.any(Function));
+            expect(webApp.use).toHaveBeenCalled();
+            expect(webApp.get).toHaveBeenCalledWith('/waf/metrics', expect.any(Function), expect.any(Function));
 
         });
 

@@ -40,4 +40,20 @@ env:
   node: true
 
 ignorePatterns:
-  - 'test/**/*'
+  - 'test/**/*.js'
+  - 'coverage/**'
+  - 'dist/**'
+  - 'scripts/**/*.js'
+  - 'pages/**/*.js'
+  - 'jest.config.ts'
+
+overrides:
+  - files:
+      - 'test/**/*.ts'
+    env:
+      jest: true
+    extends:
+      - plugin:jest/recommended
+    rules:
+      no-restricted-imports: off
+      "@typescript-eslint/no-shadow": off

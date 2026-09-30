@@ -19,22 +19,6 @@ import {UnderAttackMiddleware} from "@waf/UnderAttack/UnderAttackMiddleware";
 import bodyParser from 'body-parser';
 sourceMapSupport.install()
 
-
-
-// /*catches ctrl+c event*/
-process.on('SIGINT', exitHandler.bind(null, {exit: true, code:'SIGINT'}));
-process.on('SIGQUIT', exitHandler.bind(null, {exit: true, code:'SIGQUIT'}));
-
-/*catches uncaught exceptions*/
-process.on('uncaughtException', uncaughtExceptionHandler);
-process.on('unhandledRejection', uncaughtRejectionHandler);
-
-
-/*catches "kill pid" (for example: nodemon restart)*/
-process.on('SIGUSR1', exitHandler.bind(null, {exit: true, code:'SIGUSR1'}));
-process.on('SIGUSR2', exitHandler.bind(null, {exit: true, code:'SIGUSR2'}));
-process.on('SIGTERM', exitHandler.bind(null, {exit: true, code:'SIGTERM'}));
-
 console.log('Start Application:', '__DEV_DIRTY__');
 
 interface AppConfig {
@@ -161,4 +145,17 @@ function uncaughtRejectionHandler(reason: unknown, promise: Promise<unknown>) {
         process.exit(99);
     })();
 }
+
+// /*catches ctrl+c event*/
+process.on('SIGINT', exitHandler.bind(null, {exit: true, code:'SIGINT'}));
+process.on('SIGQUIT', exitHandler.bind(null, {exit: true, code:'SIGQUIT'}));
+
+/*catches uncaught exceptions*/
+process.on('uncaughtException', uncaughtExceptionHandler);
+process.on('unhandledRejection', uncaughtRejectionHandler);
+
+/*catches "kill pid" (for example: nodemon restart)*/
+process.on('SIGUSR1', exitHandler.bind(null, {exit: true, code:'SIGUSR1'}));
+process.on('SIGUSR2', exitHandler.bind(null, {exit: true, code:'SIGUSR2'}));
+process.on('SIGTERM', exitHandler.bind(null, {exit: true, code:'SIGTERM'}));
 

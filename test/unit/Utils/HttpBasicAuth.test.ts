@@ -3,7 +3,7 @@ import {createRequest, createResponse, MockResponse} from "node-mocks-http";
 import {describe, expect, it, jest} from '@jest/globals';
 import {NextFunction, Request, Response} from "express-serve-static-core";
 
-describe('HttpBasicAuth class - ', () => {
+describe('HttpBasicAuth class -', () => {
 
     describe('authorization disabled', () => {
         let httpBasicAuth: HttpBasicAuth;
@@ -23,7 +23,7 @@ describe('HttpBasicAuth class - ', () => {
         it('should authenticate request when config is not enabled and header is missing', () => {
             httpBasicAuth.authentication(request, response, nextFunction);
 
-            expect(nextFunction).toBeCalledTimes(1);
+            expect(nextFunction).toHaveBeenCalledTimes(1);
             expect(response.statusCode).toBe(200);
         });
 
@@ -31,7 +31,7 @@ describe('HttpBasicAuth class - ', () => {
             request.headers.authorization = 'Basic dXNlcm5hbWU6d3JvbmdfUGFzc3dvcmQ=';
             httpBasicAuth.authentication(request, response, nextFunction);
 
-            expect(nextFunction).toBeCalledTimes(1);
+            expect(nextFunction).toHaveBeenCalledTimes(1);
             expect(response.statusCode).toBe(200);
         });
 
@@ -39,7 +39,7 @@ describe('HttpBasicAuth class - ', () => {
             request.headers.authorization = 'Basic dXNlcm5hbWU6cGFzc3dvcmQ=';
             httpBasicAuth.authentication(request, response, nextFunction);
 
-            expect(nextFunction).toBeCalledTimes(1);
+            expect(nextFunction).toHaveBeenCalledTimes(1);
             expect(response.statusCode).toBe(200);
         });
     })

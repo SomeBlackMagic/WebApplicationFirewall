@@ -22,9 +22,7 @@ describe('JailStorageFile test', () => {
             .mockResolvedValue()
 
 
-        const locker: jest.SpyInstance = jest.spyOn(lockfile, 'lock').mockResolvedValue(async () => {
-
-        })
+        const locker: jest.SpyInstance = jest.spyOn(lockfile, 'lock').mockResolvedValue(jest.fn())
 
         const readFile: jest.SpyInstance = jest
             .spyOn(fsPromises, 'readFile')
