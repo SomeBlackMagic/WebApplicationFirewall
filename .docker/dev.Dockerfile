@@ -27,4 +27,4 @@ RUN npm run build
 
 ENTRYPOINT []
 
-CMD ["/nodejs/bin/node", "--require", "ts-node/register", "src/main.ts"]
+CMD ["node", "--require", "ts-node/register", "src/main.ts"]
