@@ -12,14 +12,18 @@ export class ConfigLoader {
             case "link":
                 return await this.loadFromLink<T>();
             default:
-                console.error(`Config type \`${env("WAF_CONFIG_TYPE", "file")}\` not supported`);
-                process.emit("SIGINT");
+                throw new Error(`Config type \`${env("WAF_CONFIG_TYPE", "file")}\` not supported`);
         }
     }
 
     async loadFromFile<T>(): Promise<T> {
         const configFilePath = env("WAF_CONFIG_SOURCE", process.cwd() + "/config.yaml");
         Log.instance.info("Load configuration from file: " + configFilePath);
+
+        if (!fs.existsSync(configFilePath)) {
+            throw new Error("Configuration file not found: " + configFilePath);
+        }
+
         return this.loadYamlConfig<T>(fs.readFileSync(configFilePath, "utf8"), configFilePath);
     }
 
@@ -48,8 +52,7 @@ export class ConfigLoader {
         try {
             return yaml.load(fileContent) as T;
         } catch (e) {
-            Log.instance.emergency(`Failed to parse YAML from ${source}`, e);
-            process.emit("SIGINT");
+            throw new Error(`Failed to parse YAML from ${source}: ${e instanceof Error ? e.message : e}`);
         }
     }
 }

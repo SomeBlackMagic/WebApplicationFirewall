@@ -97,10 +97,21 @@ interface AppConfig {
     );
 
     const port = 3000;
-    app.listen(port, () => {
+    app.listen(port, (error?: Error) => {
+        if (error) {
+            Log.instance.emergency("Failed to start WAF server", error.message);
+            process.emit("SIGINT");
+            return;
+        }
         Log.instance.info("WAF server started on port " + port);
     });
-})();
+})().catch(async (error: Error) => {
+    Log.instance.emergency("Failed to start application", error.message);
+
+    // @ts-ignore
+    await process.flushLogs();
+    process.exit(1);
+});
 
 function exitHandler() {
     Log.instance.info("On stop");

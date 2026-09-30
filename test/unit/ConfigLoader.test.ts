@@ -18,6 +18,7 @@ describe("ConfigLoader", () => {
         process.env.WAF_CONFIG_TYPE = "file";
         process.env.WAF_CONFIG_SOURCE = "config.yaml";
         const expected = { key: "value" };
+        mockedFs.existsSync.mockReturnValue(true);
         mockedFs.readFileSync.mockReturnValue("key: value");
         mockedYaml.load.mockReturnValue(expected);
         const config = new ConfigLoader();
@@ -42,27 +43,19 @@ describe("ConfigLoader", () => {
         expect(mockedYaml.load).toHaveBeenCalledWith("key: value");
     });
 
-    it("should emit SIGINT when config type is not supported", async () => {
+    it("should throw when config type is not supported", async () => {
         process.env.WAF_CONFIG_TYPE = "not-supported";
 
         const config = new ConfigLoader();
+        await expect(config.load()).rejects.toThrow("Config type `not-supported` not supported");
+    });
 
-        // Mock for console.error
-        const mockConsoleError = jest.spyOn(console, "error").mockImplementation();
+    it("should throw when config file does not exist", async () => {
+        process.env.WAF_CONFIG_TYPE = "file";
+        process.env.WAF_CONFIG_SOURCE = "/nonexistent/config.yaml";
+        mockedFs.existsSync.mockReturnValue(false);
 
-        // Mock for process.emit
-        const mockProcessEmit = jest.spyOn(process, "emit").mockImplementation();
-
-        await config.load();
-
-        // We check that Console.error was called with the correct message
-        expect(mockConsoleError).toHaveBeenCalledWith("Config type `not-supported` not supported");
-
-        // We check that Process.emit was called with the signal event 'Sigint'
-        expect(mockProcessEmit).toHaveBeenCalledWith("SIGINT");
-
-        // Restore the original state of MOCK objects
-        mockConsoleError.mockRestore();
-        mockProcessEmit.mockRestore();
+        const config = new ConfigLoader();
+        await expect(config.load()).rejects.toThrow("Configuration file not found: /nonexistent/config.yaml");
     });
 });
