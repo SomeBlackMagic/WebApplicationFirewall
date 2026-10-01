@@ -1,0 +1,21 @@
+proxy:
+  host: "http://localhost:8080"
+
+api:
+  auth:
+    enabled: false
+
+metrics:
+  enabled: true
+  auth:
+    enabled: false
+
+wafMiddleware:
+  mode: audit
+
+jailManager:
+  enabled: true
+  filterRules: []
+
+sentry:
+  enabled: false
