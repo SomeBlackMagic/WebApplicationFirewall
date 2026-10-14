@@ -4,6 +4,10 @@
 proxy:
   host: "http://backend:8080"
 
+geoip:
+  dbCountryPath: "./geoip_data/GeoLite2-Country.mmdb"
+  dbCityPath: "./geoip_data/GeoLite2-City.mmdb"
+
 api:
   auth:
     enabled: true
@@ -69,7 +73,7 @@ jailManager:
     - name: "threat-feed"
       type: "static"
       linkUrl: "https://feeds.example.com/malicious-ips.json"  # Update with real feed
-      updateInterval: 3600000  # Update hourly
+      updateInterval: 3600  # Update hourly (in seconds)
 
     # Extremely strict login protection
     - name: "login-bruteforce"

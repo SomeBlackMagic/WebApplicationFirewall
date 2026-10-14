@@ -2,8 +2,8 @@ proxy:
   host: "http://192.168.0.1:8888"  # Host for traffic proxy
 
 geoip:
-  dbCountryPath: "./GeoIP2-Country.mmdb"  # OPTIONAL Path to GeoIP Country database. Default: ./GeoIP2-Country.mmdb
-  dbCityPath: "./GeoIP2-City.mmdb"        # OPTIONAL Path to GeoIP City database. Default: ./GeoIP2-City.mmdb
+  dbCountryPath: "./GeoLite2-Country.mmdb"  # OPTIONAL Path to GeoIP Country database. Default: ./GeoIP2-Country.mmdb
+  dbCityPath: "./GeoLite2-City.mmdb"        # OPTIONAL Path to GeoIP City database. Default: ./GeoIP2-City.mmdb
 
 api:
   auth:

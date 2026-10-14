@@ -37,6 +37,10 @@ cat > config.yaml <<'EOF'
 proxy:
   host: "http://host.docker.internal:8080"  # Your backend URL
 
+geoip:
+  dbCountryPath: "./geoip_data/GeoLite2-Country.mmdb"
+  dbCityPath: "./geoip_data/GeoLite2-City.mmdb"
+
 api:
   auth:
     enabled: false

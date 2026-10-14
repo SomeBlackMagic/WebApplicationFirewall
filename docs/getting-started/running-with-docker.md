@@ -6,8 +6,8 @@ This guide explains how to run the WAF using Docker, both for development and pr
 
 The project includes two Dockerfiles:
 
-- **`.docker/dev.Dockerfile`** - Development image with `ts-node-dev` for hot-reloading
-- **`.docker/prod.Dockerfile`** - Production image with compiled JavaScript
+- **`.docker/dev.Dockerfile`** - Development image with `ts-node` for running from source
+- **`.docker/prod.Dockerfile`** - Production image with compiled JavaScript (multi-stage build, distroless base)
 
 ## Quick Start with Docker
 
@@ -99,23 +99,22 @@ docker run -d \
 
 ## Development with Docker
 
-For development with automatic reloading:
+For development using the dev image (runs TypeScript directly via `ts-node`):
 
 ```bash
 # Build dev image
 docker build -t waf-dev -f .docker/dev.Dockerfile .
 
-# Run with source code mounted
+# Run with config and GeoIP databases mounted
 docker run -it --rm \
   --name waf-dev \
   -p 3000:3000 \
   -v $(pwd)/config.yaml:/app/config.yaml \
   -v $(pwd)/geoip_data:/app/geoip_data \
-  -v $(pwd)/src:/app/src \
   waf-dev
 ```
 
-Code changes in `src/` will automatically reload the application.
+**Note**: The dev image does not include hot-reloading. Restart the container after code changes.
 
 ## Docker Compose
 

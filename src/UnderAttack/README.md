@@ -20,36 +20,31 @@ underAttack:
   enabled: true # enable under attack mode
   challengeDurationMs: 1800000 # 30 minutes token validity
 
+  conditions: []  # All conditions must match. Empty array = all requests
+
   # Fingerprint check settings
   fingerprintChecks:
     enabled: true
-    minScore: 70 # minimum score to pass (0-100)
-
-  # Bot detection settings
-  botDetection:
-    enabled: true
-    aiModel: "basic" # basic or advanced
-    blockSuspiciousUA: true
+    minScore: 70 # minimum score to pass (0-100), default: 0.5
 
   # Challenge page settings
   challengePage:
     title: "Security Check"
-    # customHtmlPath: "/path/to/custom/challenge.html" # custom page
+    # path: "/path/to/custom/challenge.html" # custom page
 
   # URLs that don't require verification
   skipUrls:
-    - "/__under_attack_challenge"
     - "/favicon.ico"
     - "/robots.txt"
     - "/api/webhook/*" # wildcard support
 
   # Cookie name for token
-  cookieName: "cf_clearance"
+  cookieName: "waf"
 
-  # Header for bypassing verification (for trusted services)
-  bypassHeader:
-    name: "X-Bypass-UnderAttack"
-    value: "secret-key-12345"
+  # Headers for bypassing verification (for trusted services)
+  bypassHeaders:
+    - name: "X-Bypass-UnderAttack"
+      value: "secret-key-12345"
 ```
 
 ## How It Works

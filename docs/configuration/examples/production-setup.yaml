@@ -4,6 +4,10 @@
 proxy:
   host: "http://backend:8080"  # Update with your backend service
 
+geoip:
+  dbCountryPath: "./geoip_data/GeoLite2-Country.mmdb"
+  dbCityPath: "./geoip_data/GeoLite2-City.mmdb"
+
 api:
   auth:
     enabled: true
