@@ -25,16 +25,6 @@ sudo kill -9 <PID>
 /usr/local/bin/waf
 ```
 
-### npm install Fails
-
-**Solution**:
-```bash
-# Clear cache
-npm cache clean --force
-rm -rf node_modules package-lock.json
-npm install
-```
-
 ## Configuration Issues
 
 ### Configuration Not Loading
@@ -45,7 +35,6 @@ npm install
 1. Restart WAF after config changes
 2. Check for YAML syntax errors:
    ```bash
-   npm install -g yaml-lint
    yamllint config.yaml
    ```
 3. Verify file path:
@@ -438,11 +427,6 @@ docker run ... # with correct config mount
 With Docker:
 ```bash
 docker run -e LOG_LEVEL=debug waf
-```
-
-From source:
-```bash
-npm run run:dev
 ```
 
 ### Too Many Logs

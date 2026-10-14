@@ -139,29 +139,7 @@ chmod +x waf-linux-x64
 
 ### Option 3: From Source (For Developers)
 
-For development and testing:
-
-```bash
-# Clone repository
-git clone https://github.com/SomeBlackMagic/WebApplicationFirewall.git
-cd WebApplicationFirewall
-
-# Install dependencies
-npm install
-
-# Copy config
-cp config.example.yaml config.yaml
-
-# Download GeoIP databases
-mkdir -p geoip_data
-wget -O geoip_data/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
-wget -O geoip_data/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
-
-# Run
-npm run run:dev
-```
-
-See [Development Setup](../development/setup.md) for detailed instructions.
+See [Development Setup](../development/setup.md) for instructions on running from source.
 
 ## Step 4: Test the WAF
 
@@ -227,9 +205,6 @@ docker restart waf
 
 **For binary**:
 Press Ctrl+C and restart: `./waf-linux-x64`
-
-**For source**:
-Press Ctrl+C and restart: `npm run run:dev`
 
 ## Step 6: Switch to Normal Mode
 

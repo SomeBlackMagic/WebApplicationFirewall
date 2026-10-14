@@ -227,8 +227,8 @@ jailManager:
    # Using Docker
    docker run -v $(pwd)/config.yaml:/app/config.yaml waf
 
-   # Or from source
-   npm run run:dev
+   # Or using binary
+   ./waf-linux-x64
    ```
 
 2. **Check for errors** in the console output
