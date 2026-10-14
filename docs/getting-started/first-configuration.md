@@ -23,7 +23,7 @@ wafMiddleware:
 ```
 
 This configuration:
-- Runs in `audit` mode (logs only, no blocking)
+- Runs in `audit` mode (rules are evaluated and IPs added to jail, but requests are not blocked)
 - Proxies requests to `localhost:8080`
 
 ## Step-by-Step Configuration

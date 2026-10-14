@@ -196,7 +196,7 @@ docker logs waf
 **For binary/source**:
 Check console output
 
-In `audit` mode, the WAF logs all activity but doesn't block requests.
+In `audit` mode, the WAF evaluates all rules and adds violating IPs to jail, but doesn't block requests — traffic passes through to the backend.
 
 ## Step 5: Add Your First Rule
 

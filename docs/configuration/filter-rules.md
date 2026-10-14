@@ -486,8 +486,10 @@ wafMiddleware:
 In audit mode:
 - Rules are evaluated
 - Violations are logged
-- No requests are blocked
-- No IPs are banned
+- IPs are added to jail (counters and bans work as normal)
+- **No requests are blocked** — traffic passes through to the backend
+
+**Note**: Since IPs are still added to jail in audit mode, switching to `normal` mode will immediately start blocking already-banned IPs.
 
 ### 2. Check Logs
 
