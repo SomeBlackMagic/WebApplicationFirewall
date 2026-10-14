@@ -6,7 +6,7 @@ import { IWAFMiddlewareConfig, WAFMiddleware } from "@waf/WAFMiddleware";
 import { IJailManagerConfig, JailManager } from "@waf/Jail/JailManager";
 import { Api, IApiConfig } from "@waf/Api";
 import { ConfigLoader } from "@waf/ConfigLoader";
-import { GeoIP2 } from "@waf/GeoIP2";
+import { GeoIP2, IGeoIPConfig } from "@waf/GeoIP2";
 import { envBoolean } from "@waf/Utils/Env";
 import { Log } from "@waf/Log";
 import cookieParser from "cookie-parser";
@@ -22,9 +22,11 @@ sourceMapSupport.install();
 console.log("Start Application:", "__DEV_DIRTY__");
 
 interface AppConfig {
+    port?: number;
     proxy: {
         host: string;
     };
+    geoip: IGeoIPConfig;
     wafMiddleware: IWAFMiddlewareConfig;
     jailManager: IJailManagerConfig;
     api: IApiConfig;
@@ -35,7 +37,7 @@ interface AppConfig {
 (async () => {
     const appConfig = await new ConfigLoader().load<AppConfig>();
     Sentry.build(appConfig?.sentry, "__DEV_DIRTY__");
-    await GeoIP2.build().init();
+    await GeoIP2.build(appConfig?.geoip).init();
 
     const app = express();
     app.use(cookieParser());
@@ -96,7 +98,7 @@ interface AppConfig {
         }),
     );
 
-    const port = 3000;
+    const port = appConfig?.port ?? 3000;
     app.listen(port, (error?: Error) => {
         if (error) {
             Log.instance.emergency("Failed to start WAF server", error.message);

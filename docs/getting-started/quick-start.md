@@ -14,13 +14,11 @@ Download the required GeoIP databases:
 
 ```bash
 # Create directory
-mkdir -p geoip_data && cd geoip_data
+mkdir -p geoip_data
 
 # Download databases
-wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
-wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
-
-cd ..
+wget -O geoip_data/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
+wget -O geoip_data/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
 ```
 
 ## Step 2: Create Configuration
@@ -32,6 +30,10 @@ Create your configuration file:
 cat > config.yaml <<'EOF'
 proxy:
   host: "http://localhost:8080"  # Change to your backend URL
+
+geoip:
+  dbCountryPath: "./geoip_data/GeoLite2-Country.mmdb"
+  dbCityPath: "./geoip_data/GeoLite2-City.mmdb"
 
 api:
   auth:
@@ -104,6 +106,8 @@ docker run -d \
   -v $(pwd)/data:/app/data \
   ghcr.io/someblackmagic/web-application-firewall:latest
 
+# Note: The geoip paths in config.yaml (./geoip_data/) match the Docker mount point (/app/geoip_data/)
+
 # Check logs
 docker logs -f waf
 ```
@@ -148,9 +152,10 @@ npm install
 # Copy config
 cp config.example.yaml config.yaml
 
-# Download GeoIP databases to project root
-wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
-wget https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
+# Download GeoIP databases
+mkdir -p geoip_data
+wget -O geoip_data/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb
+wget -O geoip_data/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
 
 # Run
 npm start

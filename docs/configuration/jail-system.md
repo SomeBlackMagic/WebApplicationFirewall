@@ -249,7 +249,7 @@ Bans are stored with the following information:
 ### View Banned IPs
 
 ```bash
-curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+curl -u admin:password http://localhost:3000/waf/jail-manager/banned-users
 ```
 
 ### Unban an IP
@@ -259,7 +259,7 @@ curl -X DELETE \
   -u admin:password \
   -H "Content-Type: application/json" \
   -d '{"ip":"1.2.3.4"}' \
-  http://localhost:3000/waf/jail-manager/baned-users
+  http://localhost:3000/waf/jail-manager/banned-users
 ```
 
 See [API Reference](../api/endpoints.md) for more details.
@@ -369,7 +369,6 @@ Protect the ban management API with authentication:
 
 ```yaml
 api:
-  enabled: true
   auth:
     enabled: true  # Required!
     username: "admin"

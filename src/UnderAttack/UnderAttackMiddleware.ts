@@ -187,7 +187,7 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
             // Check the signature
             const expectedSignature = crypto
-                .createHmac("sha256", process.env.WAF_ENCTIPRION_SECRET_KEY || "default-secret-key")
+                .createHmac("sha256", process.env.WAF_ENCRYPTION_SECRET_KEY || "default-secret-key")
                 .update(data)
                 .digest("base64");
 
@@ -234,7 +234,7 @@ export class UnderAttackMiddleware extends Singleton<UnderAttackMiddleware, [IUn
 
         const data = Buffer.from(JSON.stringify(payload)).toString("base64");
         const signature = crypto
-            .createHmac("sha256", process.env.WAF_ENCTIPRION_SECRET_KEY || "default-secret-key")
+            .createHmac("sha256", process.env.WAF_ENCRYPTION_SECRET_KEY || "default-secret-key")
             .update(data)
             .digest("base64");
 

@@ -64,23 +64,17 @@ Ready-to-use configuration examples are available in the [examples/](examples/) 
 Here's a minimal configuration to get started:
 
 ```yaml
-mode: normal
-port: 3000
-
-detectClientIp:
-  headers: ["x-forwarded-for"]
-
 proxy:
-  enabled: true
   host: "http://your-backend:8080"
 
-log:
-  level: 'info'
-  transport: 'console'
-
 geoip:
-  countryPath: './GeoLite2-Country.mmdb'
-  cityPath: './GeoLite2-City.mmdb'
+  dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: './geoip_data/GeoLite2-City.mmdb'
+
+wafMiddleware:
+  mode: normal
+  detectClientIp:
+    headers: ["x-forwarded-for"]
 ```
 
 ## Validation

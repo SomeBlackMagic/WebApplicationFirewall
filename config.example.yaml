@@ -1,6 +1,10 @@
 proxy:
   host: "http://192.168.0.1:8888"  # Host for traffic proxy
 
+geoip:
+  dbCountryPath: "./GeoIP2-Country.mmdb"  # OPTIONAL Path to GeoIP Country database. Default: ./GeoIP2-Country.mmdb
+  dbCityPath: "./GeoIP2-City.mmdb"        # OPTIONAL Path to GeoIP City database. Default: ./GeoIP2-City.mmdb
+
 api:
   auth:
     enabled: true
@@ -27,7 +31,7 @@ wafMiddleware:
 
   # Under Attack Mode configuration
   underAttack:
-    enabled: true # enable under attack mode
+    enabled: false # enable under attack mode
     challengeDurationMs: 1800000 # 30 minutes token validity
 
     conditions: []  # All conditions must be meat. If an array is empty - module work for all requests

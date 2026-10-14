@@ -12,8 +12,11 @@ Here's the absolute minimum required configuration:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://localhost:8080"
+
+geoip:
+  dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: './geoip_data/GeoLite2-City.mmdb'
 
 wafMiddleware:
   mode: audit
@@ -22,8 +25,6 @@ wafMiddleware:
 This configuration:
 - Runs in `audit` mode (logs only, no blocking)
 - Proxies requests to `localhost:8080`
-
-**Note**: Port, logging, and GeoIP database paths are configured via environment variables or command-line arguments, not in the YAML configuration file.
 
 ## Step-by-Step Configuration
 
@@ -58,9 +59,7 @@ Set up reverse proxy to your backend:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://your-backend:8080"
-  config: {}  # Optional http-proxy-middleware options
 ```
 
 Replace `http://your-backend:8080` with your actual backend URL.
@@ -74,8 +73,6 @@ jailManager:
   enabled: true
   storage:
     driver: memory  # Use 'memory' for testing, 'file' for production
-  syncInterval: 5000
-  syncAlways: false
   filterRules: []  # Rules added in next step
 ```
 
@@ -142,7 +139,6 @@ Enable the management API:
 
 ```yaml
 api:
-  enabled: true
   auth:
     enabled: true
     username: "admin"
@@ -158,7 +154,8 @@ Enable Prometheus metrics:
 ```yaml
 metrics:
   enabled: true
-  path: '/metrics'
+  auth:
+    enabled: false
 ```
 
 ## Complete Example Configuration
@@ -168,12 +165,15 @@ Putting it all together:
 ```yaml
 # Proxy to backend
 proxy:
-  enabled: true
   host: "http://localhost:8080"
+
+# GeoIP databases
+geoip:
+  dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: './geoip_data/GeoLite2-City.mmdb'
 
 # API for management
 api:
-  enabled: true
   auth:
     enabled: true
     username: "admin"
@@ -182,7 +182,8 @@ api:
 # Prometheus metrics
 metrics:
   enabled: true
-  path: '/metrics'
+  auth:
+    enabled: false
 
 # WAF middleware configuration
 wafMiddleware:
@@ -248,16 +249,16 @@ jailManager:
 
 5. **Check the API** (if enabled):
    ```bash
-   curl -u admin:secure-password-here http://localhost:3000/waf/jail-manager/baned-users
+   curl -u admin:secure-password-here http://localhost:3000/waf/jail-manager/banned-users
    ```
 
-## Environment Variables and Command-Line Arguments
+## Environment Variables
 
-Some settings are configured outside the YAML file:
+Some settings can be configured via environment variables:
 
-- **Port**: Set via `PORT` environment variable or `--port` flag (default: 3000)
-- **GeoIP databases**: Set via `GEOIP_COUNTRY_PATH` and `GEOIP_CITY_PATH` environment variables
-- **Log level**: Configure via application settings or environment variables
+- **Config source**: `WAF_CONFIG_TYPE` and `WAF_CONFIG_SOURCE`
+- **Sentry DSN**: `SENTRY_DSN`
+- **Instance ID**: `WAF_INSTANCE_ID`
 
 See [Environment Variables](../configuration/environment-variables.md) for full list.
 

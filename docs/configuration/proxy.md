@@ -15,22 +15,17 @@ When proxy mode is enabled:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://your-backend:8080"
-  config: {}
 ```
 
 ### Fields
 
-- **enabled**: Enable/disable proxy mode
-- **host**: URL of your backend service
-- **config**: Additional options for `http-proxy-middleware` (optional)
+- **host**: URL of your backend service (required)
 
 ## Enabling the Proxy
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://localhost:8080"
 ```
 
@@ -42,7 +37,6 @@ proxy:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://localhost:8080"
 ```
 
@@ -50,7 +44,6 @@ proxy:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://app-server:3000"
 ```
 
@@ -58,7 +51,6 @@ proxy:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://192.168.1.100:8080"
 ```
 
@@ -66,7 +58,6 @@ proxy:
 
 ```yaml
 proxy:
-  enabled: true
   host: "https://secure-backend.internal:443"
 ```
 
@@ -78,7 +69,6 @@ When WAF and backend are in Docker:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://backend-container:8080"
 ```
 
@@ -86,93 +76,10 @@ proxy:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://host.docker.internal:8080"
 ```
 
 **Note**: `host.docker.internal` works on Mac/Windows. On Linux, use `172.17.0.1` or create a bridge network.
-
-## Advanced Configuration
-
-The `config` object accepts options from `http-proxy-middleware`.
-
-### Custom headers
-
-Forward additional headers to backend:
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    headers:
-      X-Forwarded-By: "WAF"
-      X-WAF-Version: "1.0.0"
-```
-
-### Path rewriting
-
-Rewrite request paths before proxying:
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    pathRewrite:
-      "^/api": "/v1"  # /api/users → /v1/users
-```
-
-### Change origin
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    changeOrigin: true
-```
-
-Set to `true` when proxying to a virtual hosted site.
-
-### WebSocket support
-
-Enable WebSocket proxying:
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    ws: true
-```
-
-### Timeout configuration
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    proxyTimeout: 30000  # 30 seconds
-```
-
-### Complete advanced example
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    changeOrigin: true
-    ws: true
-    headers:
-      X-Forwarded-By: "WAF"
-    pathRewrite:
-      "^/api/v1": "/api"
-    proxyTimeout: 60000
-    logLevel: "warn"
-```
 
 ## Request Headers
 
@@ -194,21 +101,6 @@ app.get('/api/user', (req, res) => {
   // ...
 });
 ```
-
-## Running Without Proxy
-
-You can run WAF without proxy mode for testing or special use cases:
-
-```yaml
-proxy:
-  enabled: false
-```
-
-In this mode:
-- WAF still enforces all security checks
-- Blocked requests receive error responses
-- Allowed requests receive a success response from WAF itself (not proxied)
-- Useful for testing WAF rules without a backend
 
 ## Multiple Backends
 
@@ -233,7 +125,6 @@ The WAF can proxy to HTTPS backends:
 
 ```yaml
 proxy:
-  enabled: true
   host: "https://secure-backend:443"
 ```
 
@@ -348,15 +239,7 @@ const clientIp = req.headers['x-forwarded-for'] || req.ip;
 
 **Symptom**: WebSocket connections don't work through WAF
 
-**Solution**: Enable WebSocket support:
-
-```yaml
-proxy:
-  enabled: true
-  host: "http://backend:8080"
-  config:
-    ws: true
-```
+**Note**: WebSocket proxying is not currently supported.
 
 ## Performance Considerations
 

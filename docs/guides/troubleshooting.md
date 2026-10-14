@@ -123,10 +123,11 @@ location / {
 - Update databases monthly
 - For testing, use public IPs
 - Check database is loaded: Look for startup log `GeoIP databases loaded successfully`
-- Verify environment variables are set:
-  ```bash
-  echo $GEOIP_COUNTRY_PATH
-  echo $GEOIP_CITY_PATH
+- Verify `geoip` paths in config.yaml:
+  ```yaml
+  geoip:
+    dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+    dbCityPath: './geoip_data/GeoLite2-City.mmdb'
   ```
 
 ### Wrong Country Detected
@@ -252,7 +253,7 @@ mv GeoLite2-Country.mmdb.new GeoLite2-Country.mmdb
 
 3. Check API to see current bans:
    ```bash
-   curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+   curl -u admin:password http://localhost:3000/waf/jail-manager/banned-users
    ```
 
 ### Bans Not Persisting After Restart
@@ -297,7 +298,6 @@ jailManager:
 **Solution**:
 ```yaml
 api:
-  enabled: true
   auth:
     enabled: true
     username: "admin"
@@ -306,7 +306,7 @@ api:
 
 Test:
 ```bash
-curl -u admin:your-password http://localhost:3000/waf/jail-manager/baned-users
+curl -u admin:your-password http://localhost:3000/waf/jail-manager/banned-users
 ```
 
 ### API Not Responding
@@ -317,13 +317,7 @@ curl -u admin:your-password http://localhost:3000/waf/jail-manager/baned-users
 3. WAF not started
 
 **Solutions**:
-1. Enable API:
-   ```yaml
-   api:
-     enabled: true
-   ```
-
-2. Check health endpoint:
+1. Check health endpoint:
    ```bash
    curl http://localhost:3000/waf/healthz
    ```
@@ -410,10 +404,15 @@ docker run -d \
   --name waf \
   -p 3000:3000 \
   -v $(pwd)/config.yaml:/app/config.yaml:ro \
-  -e GEOIP_COUNTRY_PATH=/app/geoip_data/GeoLite2-Country.mmdb \
-  -e GEOIP_CITY_PATH=/app/geoip_data/GeoLite2-City.mmdb \
   -v $(pwd)/geoip_data:/app/geoip_data:ro \
   waf
+```
+
+Убедитесь, что в `config.yaml` указаны правильные пути к GeoIP базам:
+```yaml
+geoip:
+  dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: './geoip_data/GeoLite2-City.mmdb'
 ```
 
 ### Config Changes Not Applied

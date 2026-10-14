@@ -5,18 +5,29 @@ import fs from "fs";
 import { Log } from "@waf/Log";
 import { Singleton } from "@waf/Utils/Singleton";
 
-export class GeoIP2 extends Singleton<GeoIP2, []> {
+export interface IGeoIPConfig {
+    dbCountryPath?: string;
+    dbCityPath?: string;
+}
+
+export class GeoIP2 extends Singleton<GeoIP2, [IGeoIPConfig?]> {
     private readerCity: ReaderModel;
     private readerCountry: ReaderModel;
+    private config: IGeoIPConfig;
+
+    constructor(config?: IGeoIPConfig) {
+        super();
+        this.config = config ?? {};
+    }
 
     public async init(): Promise<void> {
-        const dbLinkCountry = process.cwd() + "/GeoIP2-Country.mmdb";
-        const dbLinkCity = process.cwd() + "/GeoIP2-City.mmdb";
+        const dbLinkCountry = this.config.dbCountryPath ?? process.cwd() + "/GeoIP2-Country.mmdb";
+        const dbLinkCity = this.config.dbCityPath ?? process.cwd() + "/GeoIP2-City.mmdb";
         if (!fs.existsSync(dbLinkCountry)) {
-            throw new Error("GeoIP2-Country.mmdb does not exist");
+            throw new Error(`GeoIP Country database does not exist: ${dbLinkCountry}`);
         }
         if (!fs.existsSync(dbLinkCity)) {
-            throw new Error("GeoIP2-City.mmdb does not exist");
+            throw new Error(`GeoIP City database does not exist: ${dbLinkCity}`);
         }
 
         [this.readerCountry, this.readerCity] = await Promise.all([

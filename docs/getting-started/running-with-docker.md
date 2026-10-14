@@ -69,8 +69,8 @@ Edit `config/config.yaml` to use container paths:
 
 ```yaml
 geoip:
-  countryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
-  cityPath: '/app/geoip_data/GeoLite2-City.mmdb'
+  dbCountryPath: '/app/geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: '/app/geoip_data/GeoLite2-City.mmdb'
 
 jailManager:
   storage:
@@ -140,7 +140,7 @@ Available environment variables:
 - `WAF_CONFIG_TYPE` - Configuration source type (`file` or `link`)
 - `WAF_CONFIG_SOURCE` - Path or URL to configuration
 - `SENTRY_DSN` - Sentry error tracking DSN
-- `APP_VERSION` - Application version tag
+- `WAF_INSTANCE_ID` - Instance identifier for metrics
 
 For complete list, see [Environment Variables](../configuration/environment-variables.md).
 
@@ -248,7 +248,6 @@ If your backend is on the host machine:
 
 ```yaml
 proxy:
-  enabled: true
   host: "http://host.docker.internal:8080"
 ```
 
@@ -262,7 +261,6 @@ docker run --network waf-network --name waf -p 3000:3000 ...
 Then configure:
 ```yaml
 proxy:
-  enabled: true
   host: "http://backend:8080"
 ```
 

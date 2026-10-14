@@ -97,8 +97,8 @@ Edit `config.yaml` to match your environment. At minimum, ensure the GeoIP datab
 
 ```yaml
 geoip:
-  countryPath: './geoip_data/GeoLite2-Country.mmdb'
-  cityPath: './geoip_data/GeoLite2-City.mmdb'
+  dbCountryPath: './geoip_data/GeoLite2-Country.mmdb'
+  dbCityPath: './geoip_data/GeoLite2-City.mmdb'
 ```
 
 For more details on configuration, see the [Configuration Guide](../configuration/README.md).

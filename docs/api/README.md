@@ -4,11 +4,10 @@ The WAF provides a REST API for managing and monitoring the firewall. The API ca
 
 ## Enabling the API
 
-To enable the API, set `api.enabled: true` in your configuration file:
+To configure the API authentication in your configuration file:
 
 ```yaml
 api:
-  enabled: true
   auth:
     enabled: true
     username: "admin"
@@ -35,8 +34,8 @@ For more details, see [Authentication](authentication.md).
 - `GET /waf/healthz` - Check service health (no auth required)
 
 ### Jail Management
-- `GET /waf/jail-manager/baned-users` - List all banned IPs
-- `DELETE /waf/jail-manager/baned-users` - Unban a specific IP
+- `GET /waf/jail-manager/banned-users` - List all banned IPs
+- `DELETE /waf/jail-manager/banned-users` - Unban a specific IP
 
 For detailed endpoint documentation, see [Endpoints](endpoints.md).
 

@@ -44,18 +44,18 @@ wafMiddleware:
 
 **GeoIP Database Setup**:
 
-GeoIP database paths are configured via environment variables or command-line arguments:
+GeoIP database paths are configured in `config.yaml`:
 
-```bash
-export GEOIP_COUNTRY_PATH="./GeoLite2-Country.mmdb"
-export GEOIP_CITY_PATH="./GeoLite2-City.mmdb"
+```yaml
+geoip:
+  dbCountryPath: "./geoip_data/GeoLite2-Country.mmdb"
+  dbCityPath: "./geoip_data/GeoLite2-City.mmdb"
 ```
 
-Or with Docker:
+With Docker, mount the database directory:
 ```bash
 docker run \
-  -e GEOIP_COUNTRY_PATH=/app/geoip_data/GeoLite2-Country.mmdb \
-  -e GEOIP_CITY_PATH=/app/geoip_data/GeoLite2-City.mmdb \
+  -v $(pwd)/config.yaml:/app/config.yaml:ro \
   -v $(pwd)/geoip_data:/app/geoip_data:ro \
   waf
 ```
@@ -313,7 +313,7 @@ Test geolocation detection:
 curl http://localhost:3000/
 
 # Check banned users API (includes country/city metadata)
-curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+curl -u admin:password http://localhost:3000/waf/jail-manager/banned-users
 ```
 
 **Example banned user with geo data**:
@@ -342,7 +342,7 @@ curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
 
 **Solution**:
 - Verify database files exist: `ls -lh *.mmdb`
-- Check environment variables are set correctly
+- Check `geoip` paths in config.yaml
 - Update databases (may be outdated)
 - For testing, use a public IP (not 127.0.0.1)
 
@@ -395,4 +395,4 @@ For high-traffic scenarios, this is acceptable. If memory is extremely limited, 
 
 - [Static Lists](static-lists.md) - Whitelist/Blacklist by country
 - [Filter Rules](filter-rules.md) - Using geo data in rules
-- [Environment Variables](environment-variables.md) - GeoIP database configuration
+- [Core Parameters](core-parameters.md) - GeoIP database path configuration

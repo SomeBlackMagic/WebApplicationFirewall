@@ -83,35 +83,17 @@ sentry:
 
 **Use case**: Keep DSN out of config files (secret management).
 
-## Application Metadata
+## Metrics
 
-### APP_VERSION
+### WAF_INSTANCE_ID
 
 **Type**: `string`
-**Default**: `dev-dirty`
+**Default**: MD5 hash of process PID
 
-Application version tag used in logs and Sentry reports.
-
-```bash
-export APP_VERSION=v1.2.3
-```
-
-**Use case**: Tag logs and errors with release version for easier tracking.
-
-**Example with Git**:
-```bash
-export APP_VERSION=$(git describe --tags --always)
-npm start
-```
-
-**Docker**:
-```dockerfile
-ARG VERSION=latest
-ENV APP_VERSION=$VERSION
-```
+Unique identifier for the WAF instance, used as a label in Prometheus metrics. Useful when running multiple WAF instances to distinguish them in monitoring.
 
 ```bash
-docker build --build-arg VERSION=v1.2.3 -t waf:1.2.3 .
+export WAF_INSTANCE_ID=waf-node-1
 ```
 
 ## Legacy Audit Mode
@@ -169,15 +151,15 @@ When both YAML and environment variables are set:
 |---------|------|---------------------|------------|
 | **Config source** | N/A | `WAF_CONFIG_TYPE`, `WAF_CONFIG_SOURCE` | Env only |
 | **Sentry DSN** | `sentry.dsn` | `SENTRY_DSN` | **Env wins** |
-| **App version** | N/A | `APP_VERSION` | Env only |
+| **Instance ID** | N/A | `WAF_INSTANCE_ID` | Env only |
 | **Audit mode** | `mode: audit` | `WAF_AUDIT` | YAML recommended |
 | **Port** | `port: 3000` | N/A | **YAML only** |
-| **GeoIP paths** | `geoip.countryPath` | N/A | **YAML only** |
+| **GeoIP paths** | `geoip.dbCountryPath` | N/A | **YAML only** |
 | **API auth** | `api.auth.*` | N/A | **YAML only** |
 
 **Cannot be set via environment variables**:
 - Port (`port`)
-- GeoIP database paths (`geoip.countryPath`, `geoip.cityPath`)
+- GeoIP database paths (`geoip.dbCountryPath`, `geoip.dbCityPath`)
 - API authentication (`api.auth.username`, `api.auth.password`)
 - Logging configuration (`log.*`)
 - Metrics configuration (`metrics.*`)
@@ -195,7 +177,6 @@ When both YAML and environment variables are set:
 
 export WAF_CONFIG_TYPE=file
 export WAF_CONFIG_SOURCE=./config-dev.yaml
-export APP_VERSION=dev
 export WAF_AUDIT=true
 export WAF_AUDIT_REQUEST=true
 
@@ -211,27 +192,11 @@ npm start
 export WAF_CONFIG_TYPE=link
 export WAF_CONFIG_SOURCE=https://secrets.example.com/waf-config.yaml
 export SENTRY_DSN=$(cat /run/secrets/sentry-dsn)
-export APP_VERSION=$(cat VERSION)
 
 npm start
 ```
 
 ### Docker
-
-**Dockerfile**:
-```dockerfile
-FROM node:22-alpine
-
-ARG VERSION=latest
-ENV APP_VERSION=$VERSION
-
-COPY . /app
-WORKDIR /app
-
-RUN npm install --production
-
-CMD ["node", "dist/main.js"]
-```
 
 **docker-compose.yml**:
 ```yaml
@@ -244,7 +209,6 @@ services:
       - WAF_CONFIG_TYPE=file
       - WAF_CONFIG_SOURCE=/app/config.yaml
       - SENTRY_DSN=${SENTRY_DSN}
-      - APP_VERSION=1.2.3
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./geoip:/app/geoip:ro
@@ -267,8 +231,8 @@ metadata:
   name: waf-config
 data:
   config.yaml: |
-    mode: normal
-    port: 3000
+    proxy:
+      host: "http://backend:8080"
     # ... rest of config
 ```
 
@@ -312,8 +276,8 @@ spec:
             secretKeyRef:
               name: waf-secrets
               key: sentry-dsn
-        - name: APP_VERSION
-          value: "1.2.3"
+        - name: WAF_INSTANCE_ID
+          value: "waf-pod-1"
         volumeMounts:
         - name: config
           mountPath: /etc/waf

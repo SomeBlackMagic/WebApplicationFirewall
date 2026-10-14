@@ -34,12 +34,12 @@ export class Api {
 
         this.logger.info("Api module bootstrap");
         this.webApp.get(
-            "/waf/jail-manager/baned-users",
+            "/waf/jail-manager/banned-users",
             this.authenticator.authentication.bind(this.authenticator),
             this.getBannedUsers.bind(this),
         );
         this.webApp.delete(
-            "/waf/jail-manager/baned-users",
+            "/waf/jail-manager/banned-users",
             this.authenticator.authentication.bind(this.authenticator),
             this.deleteBannedUsers.bind(this),
         );

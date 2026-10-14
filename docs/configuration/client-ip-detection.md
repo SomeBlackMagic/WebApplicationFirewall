@@ -189,7 +189,7 @@ curl -H "X-Forwarded-For: 1.2.3.4" http://localhost:3000/
 3. **Use the API** to check banned IPs include the correct client IP:
 
 ```bash
-curl -u admin:password http://localhost:3000/waf/jail-manager/baned-users
+curl -u admin:password http://localhost:3000/waf/jail-manager/banned-users
 ```
 
 ## Security Considerations
