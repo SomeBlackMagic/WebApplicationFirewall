@@ -18,12 +18,11 @@ sudo lsof -i :3000
 # Kill the process
 sudo kill -9 <PID>
 
-# Or change port via environment variable
-export PORT=3001
-npm start
+# Change port in config.yaml
+# port: 3001
 
-# Or with Docker
-docker run -e PORT=3001 -p 3001:3001 waf
+# Restart
+/usr/local/bin/waf
 ```
 
 ### npm install Fails
@@ -443,17 +442,12 @@ docker run -e LOG_LEVEL=debug waf
 
 From source:
 ```bash
-export LOG_LEVEL=debug
-npm start
+npm run run:dev
 ```
 
 ### Too Many Logs
 
-**Solution**: Reduce log verbosity:
-```bash
-export LOG_LEVEL=info
-npm start
-```
+**Solution**: Adjust log settings in `config.yaml` and restart.
 
 ## Getting Help
 

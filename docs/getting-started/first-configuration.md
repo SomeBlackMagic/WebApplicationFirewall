@@ -228,7 +228,7 @@ jailManager:
    docker run -v $(pwd)/config.yaml:/app/config.yaml waf
 
    # Or from source
-   npm start
+   npm run run:dev
    ```
 
 2. **Check for errors** in the console output
@@ -257,7 +257,6 @@ jailManager:
 Some settings can be configured via environment variables:
 
 - **Config source**: `WAF_CONFIG_TYPE` and `WAF_CONFIG_SOURCE`
-- **Sentry DSN**: `SENTRY_DSN`
 - **Instance ID**: `WAF_INSTANCE_ID`
 
 See [Environment Variables](../configuration/environment-variables.md) for full list.

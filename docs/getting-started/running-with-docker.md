@@ -130,7 +130,6 @@ docker run -d \
   -p 3000:3000 \
   -e WAF_CONFIG_TYPE=link \
   -e WAF_CONFIG_SOURCE=https://example.com/config.yaml \
-  -e SENTRY_DSN=your-sentry-dsn \
   -v $(pwd)/geoip_data:/app/geoip_data \
   ghcr.io/someblackmagic/web-application-firewall:latest
 ```
@@ -138,7 +137,6 @@ docker run -d \
 Available environment variables:
 - `WAF_CONFIG_TYPE` - Configuration source type (`file` or `link`)
 - `WAF_CONFIG_SOURCE` - Path or URL to configuration
-- `SENTRY_DSN` - Sentry error tracking DSN
 - `WAF_INSTANCE_ID` - Instance identifier for metrics
 
 For complete list, see [Environment Variables](../configuration/environment-variables.md).

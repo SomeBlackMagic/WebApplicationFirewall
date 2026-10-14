@@ -158,7 +158,7 @@ wget -O geoip_data/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/
 wget -O geoip_data/GeoLite2-City.mmdb https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-City.mmdb
 
 # Run
-npm start
+npm run run:dev
 ```
 
 See [Development Setup](../development/setup.md) for detailed instructions.
@@ -229,7 +229,7 @@ docker restart waf
 Press Ctrl+C and restart: `./waf-linux-x64`
 
 **For source**:
-Press Ctrl+C and restart: `npm start`
+Press Ctrl+C and restart: `npm run run:dev`
 
 ## Step 6: Switch to Normal Mode
 
@@ -287,7 +287,6 @@ docker run -d \
   -v $(pwd)/config.yaml:/app/config.yaml:ro \
   -v $(pwd)/geoip_data:/app/geoip_data:ro \
   -v $(pwd)/data:/app/data \
-  -e SENTRY_DSN=your-sentry-dsn \
   ghcr.io/someblackmagic/web-application-firewall:latest
 ```
 

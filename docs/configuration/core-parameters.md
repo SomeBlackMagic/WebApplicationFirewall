@@ -69,22 +69,12 @@ Sentry error tracking integration.
 ### sentry.dsn
 
 **Type**: `string`
-**Can also be set via `SENTRY_DSN` environment variable**
-
 Sentry DSN (Data Source Name) for error reporting.
 
 ```yaml
 sentry:
   dsn: "https://your-sentry-dsn@sentry.io/project-id"
 ```
-
-**Via environment variable**:
-
-```bash
-export SENTRY_DSN="https://your-sentry-dsn@sentry.io/project-id"
-```
-
-The environment variable takes precedence over the YAML configuration.
 
 ## Complete Example
 

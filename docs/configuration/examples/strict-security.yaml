@@ -213,7 +213,7 @@ jailManager:
 
 sentry:
   enabled: false
-  dsn: ''  # Set via SENTRY_DSN environment variable
+  dsn: ''
   debug: false
 
 # Security notes:

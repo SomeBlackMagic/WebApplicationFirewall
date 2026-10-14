@@ -22,7 +22,6 @@ To load configuration from a remote URL:
 ```bash
 export WAF_CONFIG_TYPE=link
 export WAF_CONFIG_SOURCE=https://example.com/waf-config.yaml
-npm start
 ```
 
 ## Configuration Sections

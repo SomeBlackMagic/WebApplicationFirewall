@@ -129,7 +129,6 @@ See [Configuration Guide](../configuration/README.md) for all available options.
 ```bash
 sudo cat > /etc/waf/env_vars <<'EOF'
 WAF_CONFIG_SOURCE=/etc/waf/config.yaml
-# SENTRY_DSN=https://your-dsn@sentry.io/project
 # WAF_INSTANCE_ID=waf-node-1
 EOF
 ```

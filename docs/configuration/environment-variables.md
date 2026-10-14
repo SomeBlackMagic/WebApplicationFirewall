@@ -60,29 +60,6 @@ export WAF_CONFIG_TYPE=link
 export WAF_CONFIG_SOURCE=https://my-bucket.s3.amazonaws.com/waf/prod-config.yaml?signature=...
 ```
 
-## Error Tracking
-
-### SENTRY_DSN
-
-**Type**: `string`
-**Default**: None
-
-Sentry DSN (Data Source Name) for error tracking integration.
-
-```bash
-export SENTRY_DSN=https://abc123@o123456.ingest.sentry.io/789012
-```
-
-This environment variable takes precedence over the YAML configuration:
-
-```yaml
-# config.yaml
-sentry:
-  dsn: "will-be-overridden"
-```
-
-**Use case**: Keep DSN out of config files (secret management).
-
 ## Metrics
 
 ### WAF_INSTANCE_ID
@@ -150,7 +127,7 @@ When both YAML and environment variables are set:
 | Setting | YAML | Environment Variable | Precedence |
 |---------|------|---------------------|------------|
 | **Config source** | N/A | `WAF_CONFIG_TYPE`, `WAF_CONFIG_SOURCE` | Env only |
-| **Sentry DSN** | `sentry.dsn` | `SENTRY_DSN` | **Env wins** |
+| **Sentry DSN** | `sentry.dsn` | N/A | **YAML only** |
 | **Instance ID** | N/A | `WAF_INSTANCE_ID` | Env only |
 | **Audit mode** | `mode: audit` | `WAF_AUDIT` | YAML recommended |
 | **Port** | `port: 3000` | N/A | **YAML only** |
@@ -159,6 +136,7 @@ When both YAML and environment variables are set:
 
 **Cannot be set via environment variables**:
 - Port (`port`)
+- Sentry DSN (`sentry.dsn`)
 - GeoIP database paths (`geoip.dbCountryPath`, `geoip.dbCityPath`)
 - API authentication (`api.auth.username`, `api.auth.password`)
 - Logging configuration (`log.*`)
@@ -180,7 +158,7 @@ export WAF_CONFIG_SOURCE=./config-dev.yaml
 export WAF_AUDIT=true
 export WAF_AUDIT_REQUEST=true
 
-npm start
+/usr/local/bin/waf
 ```
 
 ### Production
@@ -191,9 +169,8 @@ npm start
 
 export WAF_CONFIG_TYPE=link
 export WAF_CONFIG_SOURCE=https://secrets.example.com/waf-config.yaml
-export SENTRY_DSN=$(cat /run/secrets/sentry-dsn)
 
-npm start
+/usr/local/bin/waf
 ```
 
 ### Docker
@@ -208,17 +185,11 @@ services:
     environment:
       - WAF_CONFIG_TYPE=file
       - WAF_CONFIG_SOURCE=/app/config.yaml
-      - SENTRY_DSN=${SENTRY_DSN}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./geoip:/app/geoip:ro
     ports:
       - "3000:3000"
-```
-
-**.env file** (for docker-compose):
-```env
-SENTRY_DSN=https://abc123@sentry.io/789012
 ```
 
 ### Kubernetes
@@ -234,17 +205,6 @@ data:
     proxy:
       host: "http://backend:8080"
     # ... rest of config
-```
-
-**Secret** (for sensitive data):
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: waf-secrets
-type: Opaque
-stringData:
-  sentry-dsn: "https://abc123@sentry.io/789012"
 ```
 
 **Deployment**:
@@ -271,11 +231,6 @@ spec:
           value: "file"
         - name: WAF_CONFIG_SOURCE
           value: "/etc/waf/config.yaml"
-        - name: SENTRY_DSN
-          valueFrom:
-            secretKeyRef:
-              name: waf-secrets
-              key: sentry-dsn
         - name: WAF_INSTANCE_ID
           value: "waf-pod-1"
         volumeMounts:
@@ -326,13 +281,7 @@ console.log('Starting WAF...');
    - Kubernetes: RBAC policies
    - AWS: IAM roles
 
-4. **Rotate secrets regularly**:
-```bash
-# Update Sentry DSN
-kubectl delete secret waf-secrets
-kubectl create secret generic waf-secrets --from-literal=sentry-dsn=new-dsn
-kubectl rollout restart deployment/waf
-```
+4. **Rotate secrets regularly**
 
 ### Configuration URL Security
 
@@ -375,7 +324,7 @@ env | grep WAF_
 
 # Start with debug logging
 export WAF_AUDIT=true
-npm start
+systemctl restart waf
 ```
 
 ### Environment variable not taking effect
@@ -384,8 +333,7 @@ npm start
 
 **Solution**: Check [Configuration Precedence](#configuration-precedence).
 
-For settings like `SENTRY_DSN`, env should override YAML. If not working:
-1. Verify variable is set: `echo $SENTRY_DSN`
+1. Verify variable is set: `env | grep WAF_`
 2. Check for typos in variable name
 3. Restart WAF after setting variable
 

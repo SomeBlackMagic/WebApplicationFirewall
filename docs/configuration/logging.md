@@ -177,10 +177,10 @@ log:
 
 ```bash
 # Redirect to file
-npm start > /var/log/waf/waf.log 2>&1
+/usr/local/bin/waf > /var/log/waf/waf.log 2>&1
 
 # Redirect to syslog
-npm start 2>&1 | logger -t waf
+/usr/local/bin/waf 2>&1 | logger -t waf
 
 # Use with Docker
 docker logs waf > waf.log
@@ -278,7 +278,7 @@ services:
 Forward logs to syslog:
 
 ```bash
-npm start 2>&1 | logger -t waf -p local0.info
+/usr/local/bin/waf 2>&1 | logger -t waf -p local0.info
 ```
 
 ### ELK Stack (Elasticsearch, Logstash, Kibana)

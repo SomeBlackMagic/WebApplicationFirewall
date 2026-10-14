@@ -45,18 +45,6 @@ wafMiddleware:
       enabled: true
       minScore: 70 # minimum score to pass (0-100)
 
-    # Bot detection settings
-    botDetection:
-      enabled: true
-      aiModel: "advanced" # basic or advanced (advanced recommended)
-      blockSuspiciousUA: true
-
-    # Tamper-proof check settings
-    advancedChecks:
-      enabled: true          # Enable advanced checks
-      challengeTimeout: 120  # Maximum time for a challenge in seconds
-      minBrowserProofScore: 60 # Minimum score for browser proofs (0-100)
-
     # Challenge page settings
     challengePage:
       title: "Security Check"
