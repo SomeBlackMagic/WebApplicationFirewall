@@ -10,6 +10,7 @@ import { Metric } from "prom-client";
 import { IWhitelistConfig, Whitelist } from "@waf/Static/Whitelist";
 import { Blacklist, IBlacklistConfig } from "@waf/Static/Blacklist";
 import { merge } from "lodash";
+import * as ipLib from "ip";
 import { IUnderAttackConfig, UnderAttackMiddleware } from "@waf/UnderAttack/UnderAttackMiddleware";
 import { ContentLoader } from "@waf/Utils/ContentLoader";
 
@@ -202,7 +203,10 @@ export class WAFMiddleware {
     public detectClientIp(req: Request) {
         for (const header of [...this.config.detectClientIp.headers, ...this.realIPHeadersList]) {
             if (typeof req.headers[header] !== "undefined" && req.headers[header] !== "") {
-                return this.fetchFirstIpFromString(req.headers[header] as string);
+                const candidate = this.fetchFirstIpFromString(req.headers[header] as string);
+                if (ipLib.isV4Format(candidate) || ipLib.isV6Format(candidate)) {
+                    return candidate;
+                }
             }
         }
         return req.ip;

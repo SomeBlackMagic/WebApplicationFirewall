@@ -43,6 +43,9 @@ export abstract class StaticFilter<T, U extends any[]> extends Singleton<T, U> {
     }
 
     private validateIncludeIPSubnet(ip: string): boolean {
+        if (!ipLib.isV4Format(ip) && !ipLib.isV6Format(ip)) {
+            return false;
+        }
         return this.config.ipSubnet.some(subnet => {
             return ipLib.cidrSubnet(subnet).contains(ip);
         });
